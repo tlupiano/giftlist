@@ -4,30 +4,28 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
-
 import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
-
-// --- IMPORTAÇÃO NOVA ---
-import ListPage from './pages/ListPage'; 
+import ListPage from './pages/ListPage'; // Página pública
+import EditListPage from './pages/EditListPage'; // <-- Nossa página de edição
 
 function App() {
   return (
     <Routes>
+      {/* Todas as páginas usam o Layout (Navbar) */}
       <Route path="/" element={<Layout />}>
         
         {/* === Rotas Públicas === */}
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
-        
-        {/* --- ROTA PÚBLICA NOVA --- */}
-        {/* Esta rota captura a URL (ex: /lista/cha-da-ana) */}
-        <Route path="lista/:slug" element={<ListPage />} /> 
+        <Route path="lista/:slug" element={<ListPage />} /> {/* Rota pública */}
 
         {/* === Rotas Protegidas === */}
         <Route element={<ProtectedRoute />}>
           <Route path="dashboard" element={<DashboardPage />} />
+          {/* --- Rota de Edição --- */}
+          <Route path="dashboard/lista/:slug" element={<EditListPage />} />
         </Route>
         
       </Route>

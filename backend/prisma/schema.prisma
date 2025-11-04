@@ -6,65 +6,58 @@ generator client {
 // Define a fonte de dados (nosso banco PostgreSQL)
 datasource db {
   provider = "postgresql"
-  // A variável 'DATABASE_URL' é lida do docker-compose.yml,
-  // que por sua vez a leu do arquivo .env
   url      = env("DATABASE_URL")
 }
 
 // ---- MODELO DE USUÁRIO (Existente) ----
 model User {
-  id        String   @id @default(uuid()) // Chave primária com UUID (texto aleatório único)
-  email     String   @unique // O email deve ser único
+  id        String   @id @default(uuid())
+  email     String   @unique
   name      String
-  password  String   // Vamos armazenar a senha "hasheada" (criptografada)
-  
-  createdAt DateTime @default(now()) // Data de criação, preenchida automaticamente
-  updatedAt DateTime @updatedAt // Data de atualização, atualizada automaticamente
-
-  // --- Adição da Relação ---
-  // Um usuário pode ter VÁRIAS listas
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   lists     GiftList[]
 }
 
-// ---- NOVOS MODELOS ----
-
-// Modelo para a Lista de Presentes
+// ---- MODELO DA LISTA (Existente) ----
 model GiftList {
   id          String    @id @default(uuid())
   title       String
-  description String?   // O '?' torna o campo opcional
+  description String?
   eventDate   DateTime?
-  slug        String    @unique // Para a URL pública (ex: /lista/cha-da-ana)
+  slug        String    @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
-  // Relacionamento: A lista pertence a UM usuário
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade) // Se o user for deletado, deleta a lista
-
-  // Relacionamento: A lista tem VÁRIOS itens
-  items Item[]
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       Item[]
 }
 
-// Modelo para os Itens da Lista
+// ---- MODELO DO ITEM (Atualizado) ----
 model Item {
   id          String    @id @default(uuid())
   name        String
   description String?
-  price       Float?    // Preço do item
-  imageUrl    String?   // URL da imagem
-  linkUrl     String?   // Link para a loja
-  status      ItemStatus @default(AVAILABLE) // Status do item
+  price       Float?
+  imageUrl    String?
+  linkUrl     String?
+  status      ItemStatus @default(AVAILABLE) // O status agora tem 3 opções
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // --- MUDANÇA AQUI: Campos para Reserva ---
+  purchaserName  String? // Nome do convidado que reservou
+  purchaserEmail String? // Email (opcional) do convidado
+
   // Relacionamento: O item pertence a UMA lista
   listId String
-  list   GiftList @relation(fields: [listId], references: [id], onDelete: Cascade) // Se a lista for deletada, deleta o item
+  list   GiftList @relation(fields: [listId], references: [id], onDelete: Cascade)
 }
 
-// Enum para o status do item
+// ---- ENUM DE STATUS (Atualizado) ----
 enum ItemStatus {
-  AVAILABLE  // Disponível
-  PURCHASED  // Comprado
+  AVAILABLE // Disponível
+  RESERVED  // Reservado pelo convidado
+  PURCHASED // Compra confirmada pelo dono
 }
