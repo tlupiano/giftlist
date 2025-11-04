@@ -1,10 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-// 1. Importar o nosso hook 'useAuth'
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
-  // 2. Obter os dados e funções do contexto
   const { isAuthenticated, user, logout } = useAuth();
 
   return (
@@ -15,15 +13,20 @@ export default function Navbar() {
         </Link>
         <div className="flex items-center space-x-4">
           
-          {/* 3. Renderização Condicional */}
           {isAuthenticated ? (
             // Se ESTIVER logado
             <>
-              <span className="text-gray-700">
+              <span className="text-gray-700 hidden sm:inline">
                 Olá, <span className="font-medium">{user.name}</span>
               </span>
+              
+              {/* --- LINK NOVO AQUI --- */}
+              <Link to="/dashboard" className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">
+                Meu Painel
+              </Link>
+              
               <button
-                onClick={logout} // Chama a função de logout do contexto
+                onClick={logout}
                 className="px-3 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
               >
                 Sair
