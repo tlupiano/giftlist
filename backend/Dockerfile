@@ -15,6 +15,9 @@ RUN npm install
 # Copia o resto do código da aplicação
 COPY . .
 
+# Gerar o Prisma Client durante o build
+RUN npx prisma generate
+
 # Expõe a porta que a aplicação vai rodar
 EXPOSE 5000
 
