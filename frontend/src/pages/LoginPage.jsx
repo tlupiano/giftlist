@@ -1,35 +1,26 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// 1. Importar o nosso hook 'useAuth'
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  
+  // 2. Obter a função 'login' do contexto
+  const { login } = useAuth(); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Falha no login');
-      }
-
-      // TODO: Salvar o token (localStorage ou Contexto)
-      console.log('Token de acesso:', data.token); 
+      // 3. Chamar a função 'login' do contexto
+      await login(email, password);
+      // O redirecionamento é feito dentro do próprio AuthContext
       
-      navigate('/'); // Redireciona para a Home
-
     } catch (err) {
+      // Se o 'login' falhar, ele vai lançar um erro
       setError(err.message);
     }
   };
@@ -72,6 +63,7 @@ export default function LoginPage() {
             Entrar
           </button>
         </div>
+        {/* Exibe o erro do contexto */}
         {error && <p className="text-red-500 text-center mt-4">{error}</p>}
       </form>
     </div>
