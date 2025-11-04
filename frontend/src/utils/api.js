@@ -8,7 +8,9 @@ const API_URL = 'http://localhost:5000/api';
  */
 export const apiFetch = async (endpoint, options = {}) => {
   // 1. Pega o token salvo pelo AuthContext
-  const token = localStorage.getItem('token');
+  // --- CORREÇÃO AQUI ---
+  // Lendo 'authToken' em vez de 'token'
+  const token = localStorage.getItem('authToken');
 
   // 2. Define os cabeçalhos (headers)
   const headers = {
@@ -42,5 +44,10 @@ export const apiFetch = async (endpoint, options = {}) => {
   }
 
   // 7. Se for OK, retorna o JSON da resposta
-  return response.json();
+  // Se a resposta não tiver corpo (ex: status 204), retorna null
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.indexOf('application/json') !== -1) {
+    return response.json();
+  }
+  return null;
 };
