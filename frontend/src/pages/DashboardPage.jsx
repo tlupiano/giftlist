@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { apiFetch } from '../utils/api.js'; // <-- Nosso novo helper!
+import { apiFetch } from '../utils/api.js';
+import { Link } from 'react-router-dom'; // <-- IMPORTAR O LINK
 
 export default function DashboardPage() {
   const { user } = useAuth();
   
-  // Estados para o formulário
+  // ... (estados existentes, sem alteração) ...
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-
-  // Estados para a lista
   const [myLists, setMyLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
 
-  // --- Efeito para buscar as listas ---
+  // ... (useEffect e handleCreateList, sem alteração) ...
   useEffect(() => {
     const fetchLists = async () => {
       try {
@@ -33,14 +32,12 @@ export default function DashboardPage() {
     };
 
     fetchLists();
-  }, []); // O array vazio [] faz rodar apenas uma vez
+  }, []);
 
-  // --- Função para criar a lista ---
   const handleCreateList = async (e) => {
     e.preventDefault();
     setFormError(null);
 
-    // Validação simples do slug
     if (!/^[a-z0-9-]+$/.test(slug)) {
       setFormError('URL (Slug) deve conter apenas letras minúsculas, números e hífens.');
       return;
@@ -52,30 +49,25 @@ export default function DashboardPage() {
         body: JSON.stringify({ title, slug, description }),
       });
 
-      // Adiciona a nova lista no topo da lista existente
       setMyLists([newList, ...myLists]);
-      
-      // Limpa o formulário
       setTitle('');
       setSlug('');
       setDescription('');
       
     } catch (err) {
       console.error(err);
-      // 'err.data.message' vem do nosso helper
       setFormError(err.data.message || 'Erro ao criar a lista.');
     }
   };
   
-  // Atualiza o slug automaticamente baseado no título
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
     const newSlug = newTitle
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
+      .replace(/[^a-z0-9\s-]/g, '')
       .trim()
-      .replace(/\s+/g, '-'); // Troca espaços por hífens
+      .replace(/\s+/g, '-');
     setSlug(newSlug);
   };
 
@@ -86,6 +78,7 @@ export default function DashboardPage() {
       <div className="md:col-span-1">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-2xl font-bold mb-4">Criar Nova Lista</h2>
+          {/* ... (formulário existente, sem alteração) ... */}
           <form onSubmit={handleCreateList} className="space-y-4">
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700">
@@ -144,10 +137,9 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h1 className="text-3xl font-bold mb-4">Minhas Listas</h1>
           
+          {/* ... (lógica de loading/error, sem alteração) ... */}
           {loading && <p>Carregando suas listas...</p>}
-          
           {error && <p className="text-red-600">{error}</p>}
-          
           {!loading && !error && myLists.length === 0 && (
             <p className="text-gray-600">
               Você ainda não tem nenhuma lista. Crie sua primeira lista ao lado!
@@ -156,12 +148,18 @@ export default function DashboardPage() {
 
           {!loading && myLists.length > 0 && (
             <div className="space-y-4">
+              {/* --- ALTERAÇÃO AQUI --- */}
               {myLists.map((list) => (
-                <div key={list.id} className="border border-gray-200 p-4 rounded-lg hover:shadow-lg transition-shadow">
+                // Adicionado <Link> para a página pública
+                <Link 
+                  to={`/lista/${list.slug}`} 
+                  key={list.id} 
+                  className="block border border-gray-200 p-4 rounded-lg hover:shadow-lg transition-shadow"
+                >
                   <h3 className="text-xl font-semibold text-blue-700">{list.title}</h3>
-                  <p className="text-sm text-gray-500">/{list.slug}</p>
+                  <p className="text-sm text-gray-500">/lista/{list.slug}</p>
                   <p className="text-gray-700 mt-2">{list.description || 'Nenhuma descrição.'}</p>
-                </div>
+                </Link>
               ))}
             </div>
           )}
