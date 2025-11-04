@@ -1,0 +1,26 @@
+// Define o cliente que será usado (o Prisma Client para JavaScript)
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Define a fonte de dados (nosso banco PostgreSQL)
+datasource db {
+  provider = "postgresql"
+  // A variável 'DATABASE_URL' é lida do docker-compose.yml,
+  // que por sua vez a leu do arquivo .env
+  url      = env("DATABASE_URL")
+}
+
+// ---- NOSSOS MODELOS DE DADOS COMEÇAM AQUI ----
+
+// Modelo 'User'
+// O Prisma irá transformar isso em uma tabela 'User' no PostgreSQL
+model User {
+  id        String   @id @default(uuid()) // Chave primária com UUID (texto aleatório único)
+  email     String   @unique // O email deve ser único
+  name      String
+  password  String   // Vamos armazenar a senha "hasheada" (criptografada)
+  
+  createdAt DateTime @default(now()) // Data de criação, preenchida automaticamente
+  updatedAt DateTime @updatedAt // Data de atualização, atualizada automaticamente
+}
