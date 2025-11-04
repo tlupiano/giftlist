@@ -2,7 +2,6 @@ import prisma from '../lib/prisma.js';
 
 // --- Criar uma nova Lista de Presentes (Protegido) ---
 export const createGiftList = async (req, res) => {
-  // ... (código existente, sem alteração) ...
   const { title, description, eventDate, slug } = req.body;
   const userId = req.userId; 
 
@@ -39,7 +38,6 @@ export const createGiftList = async (req, res) => {
 
 // --- Buscar todas as listas do usuário logado (Protegido) ---
 export const getMyGiftLists = async (req, res) => {
-  // ... (código existente, sem alteração) ...
   const userId = req.userId; 
 
   try {
@@ -60,16 +58,15 @@ export const getMyGiftLists = async (req, res) => {
   }
 };
 
-// --- NOVO: Buscar uma lista pública pelo Slug (Público) ---
+// --- Buscar uma lista pública pelo Slug (Público) ---
 export const getListBySlug = async (req, res) => {
-  const { slug } = req.params; // Pega o slug da URL (ex: /api/lists/cha-da-ana)
+  const { slug } = req.params; 
 
   try {
     const list = await prisma.giftList.findUnique({
       where: {
         slug: slug,
       },
-      // Inclui os itens e o nome do criador
       include: {
         items: {
           orderBy: {
@@ -78,13 +75,13 @@ export const getListBySlug = async (req, res) => {
         },
         user: {
           select: {
-            name: true, // Seleciona apenas o nome do usuário
+            id: true,   // <-- A CORREÇÃO ESTÁ AQUI
+            name: true, 
           },
         },
       },
     });
 
-    // Se a lista não for encontrada
     if (!list) {
       return res.status(404).json({ message: 'Lista de presentes não encontrada.' });
     }
