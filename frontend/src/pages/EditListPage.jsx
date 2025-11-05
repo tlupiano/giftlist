@@ -106,31 +106,60 @@ export default function EditListPage() {
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
 
-  // --- Função de buscar os dados da lista (sem mudança) ---
-  const fetchList = async () => {
+  // --- 1. FUNÇÃO DE FETCH ATUALIZADA ---
+  // Adicionamos 'isSilent' para evitar o pisca-pisca do "Carregando"
+  const fetchList = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true); // Só mostra "Carregando" na primeira vez
+      }
       const data = await apiFetch(`/lists/${slug}`); 
+      
       if (!user || data.user.id !== user.id) {
          setError('Acesso negado. Esta lista não é sua.');
-         setLoading(false);
+         if (!isSilent) setLoading(false);
          return;
       }
+      
       setList(data);
       setError(null);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
-      setError(err.message || 'Erro ao carregar a lista.');
+      // Não mostra erros de "polling" silencioso, a menos que a lista suma
+      if (!isSilent || !list) {
+        setError(err.message || 'Erro ao carregar a lista.');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
+  // Efeito para o carregamento inicial (NÃO silencioso)
   useEffect(() => {
     if (user) { 
-      fetchList();
+      fetchList(false);
     }
   }, [slug, user]); 
+
+  // --- 2. NOVO EFEITO: Polling para atualizações ---
+  useEffect(() => {
+    // Só começa o polling DEPOIS que a lista já foi carregada 1 vez
+    if (!list) {
+      return; 
+    }
+
+    // Define um intervalo para verificar atualizações a cada 30 segundos
+    const intervalId = setInterval(() => {
+      console.log("[Polling] Verificando atualizações silenciosamente...");
+      fetchList(true); // Chama o fetch em modo "silencioso"
+    }, 30000); // 30000 ms = 30 segundos
+
+    // Função de limpeza: para o intervalo quando o usuário sai da página
+    return () => clearInterval(intervalId);
+
+  }, [list, slug]); // Depende de 'list' e 'slug'
 
   // --- Funções de Gerenciamento de CATEGORIA (sem mudança) ---
   const handleCreateCategory = async (e) => {
@@ -361,8 +390,7 @@ export default function EditListPage() {
     document.body.removeChild(textArea);
   };
 
-  // --- 1. (Polimento) NOVA LÓGICA: Filtrar categorias vazias ---
-  // Filtramos as categorias que serão RENDERIZADAS na coluna da direita
+  // --- Lógica de Filtrar Categorias Vazias (sem mudança) ---
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
 
   // --- Renderização ---
@@ -415,7 +443,6 @@ export default function EditListPage() {
             <form onSubmit={handleSubmitItem} className="space-y-4">
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoria*</label>
-                {/* O dropdown AINDA MOSTRA TODAS as categorias, o que está correto */}
                 <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Selecione uma categoria...</option>
                   {list.categories.map(c => (
@@ -423,7 +450,6 @@ export default function EditListPage() {
                   ))}
                 </select>
               </div>
-              {/* Restante do formulário de item (sem mudança) */}
               <div>
                 <label htmlFor="itemName" className="block text-sm font-medium text-gray-700">Nome do Item*</label>
                 <input type="text" id="itemName" value={formValues.name} onChange={(e) => setFormValues(f => ({ ...f, name: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
@@ -459,24 +485,20 @@ export default function EditListPage() {
           </div>
         </div>
 
-        {/* --- 2. (Polimento) Coluna 2: Categorias e Itens (ATUALIZADA) --- */}
+        {/* Coluna 2: Categorias e Itens (sem mudança) */}
         <div className="md:col-span-2 space-y-6">
           {list.categories.length === 0 ? (
-            // Nenhuma categoria foi criada ainda
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <p className="text-gray-600">Nenhuma categoria criada ainda. Crie sua primeira categoria no formulário ao lado.</p>
             </div>
           ) : categoriesWithItems.length === 0 ? (
-            // Categorias existem, mas estão todas vazias
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <p className="text-gray-600">Suas categorias estão vazias. Adicione itens a elas usando o formulário ao lado para que elas apareçam aqui.</p>
             </div>
           ) : (
-            // Renderiza APENAS as categorias que têm itens
             categoriesWithItems.map(category => (
               <div key={category.id} className="bg-white p-6 rounded-lg shadow-md">
                 
-                {/* Cabeçalho da Categoria (sem mudança) */}
                 <div className="flex justify-between items-center mb-4 pb-4 border-b">
                   {editingCategory.id === category.id ? (
                     <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2">
@@ -515,9 +537,7 @@ export default function EditListPage() {
                   )}
                 </div>
                 
-                {/* Itens da Categoria (sem mudança) */}
                 {category.items.length === 0 ? (
-                  // Este bloco agora é tecnicamente impossível por causa do nosso filtro, mas o deixamos por segurança
                   <p className="text-gray-500 text-sm">Nenhum item nesta categoria.</p>
                 ) : (
                   <div className="space-y-3">
