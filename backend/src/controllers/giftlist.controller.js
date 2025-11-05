@@ -58,6 +58,7 @@ export const getMyGiftLists = async (req, res) => {
   }
 };
 
+// --- ATUALIZAÇÃO AQUI ---
 // --- Buscar uma lista pública pelo Slug (Público) ---
 export const getListBySlug = async (req, res) => {
   const { slug } = req.params; 
@@ -67,21 +68,32 @@ export const getListBySlug = async (req, res) => {
       where: {
         slug: slug,
       },
+      // Precisamos incluir os dados de acordo com o NOVO SCHEMA
       include: {
-        items: {
+        user: {
+          select: {
+            id: true, // Corrigido na v24
+            name: true,
+          },
+        },
+        // 1. Buscamos as CATEGORIAS da lista
+        categories: {
           orderBy: {
             createdAt: 'asc',
           },
-        },
-        user: {
-          select: {
-            id: true,   // <-- A CORREÇÃO ESTÁ AQUI
-            name: true, 
+          // 2. E dentro de cada categoria, buscamos os ITENS
+          include: {
+            items: {
+              orderBy: {
+                createdAt: 'asc',
+              },
+            },
           },
         },
       },
     });
 
+    // Se a lista não for encontrada
     if (!list) {
       return res.status(404).json({ message: 'Lista de presentes não encontrada.' });
     }
