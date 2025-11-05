@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import ProgressBar from '../components/ProgressBar'; // <-- 1. IMPORTAR
+import ProgressBar from '../components/ProgressBar';
 
-// --- Componente de Ícone (Lápis para Editar) ---
-// (Movido para dentro da EditListPage para manter o arquivo único por enquanto)
+// --- Componentes de Ícone ---
 function EditIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -14,11 +13,25 @@ function EditIcon() {
   );
 }
 
+function DeleteIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.576 0H3.398c-.621 0-1.125.504-1.125 1.125s.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125s-.504-1.125-1.125-1.125Z" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.467-7.48-8.467-4.237 0-7.48 4.007-7.48 8.467v7.5c0 .621.504 1.125 1.125 1.125h3.375m9.375-3.375c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125h-9.75A1.125 1.125 0 0 0 9 6.375v9.375c0 .621.504 1.125 1.125 1.125h9.75Z" />
+    </svg>
+  );
+}
+
 // --- Componente de Card de Item (Admin) ---
-// (Sem grandes mudanças, apenas recebe os handlers)
 function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
   const { status, purchaserName } = item;
-
   let statusText = '';
   let bgColor = 'bg-white';
   let actions = null;
@@ -26,29 +39,17 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
   switch (status) {
     case 'RESERVED':
       bgColor = 'bg-yellow-50';
-      statusText = (
-        <span className="block text-sm font-semibold text-yellow-800">
-          Reservado por: {purchaserName || 'Desconhecido'}
-        </span>
-      );
+      statusText = <span className="block text-sm font-semibold text-yellow-800">Reservado por: {purchaserName || 'Desconhecido'}</span>;
       actions = (
         <div className="flex space-x-2 mt-3">
-          <button onClick={() => onConfirm(item.id)} className="text-xs font-medium bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700">
-            Confirmar
-          </button>
-          <button onClick={() => onCancel(item.id)} className="text-xs font-medium bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600">
-            Cancelar
-          </button>
+          <button onClick={() => onConfirm(item.id)} className="text-xs font-medium bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700">Confirmar</button>
+          <button onClick={() => onCancel(item.id)} className="text-xs font-medium bg-gray-500 text-white px-3 py-1 rounded-md hover:bg-gray-600">Cancelar</button>
         </div>
       );
       break;
     case 'PURCHASED':
       bgColor = 'bg-gray-100';
-      statusText = (
-        <span className="block text-sm font-semibold text-gray-600">
-          Comprado (por {purchaserName || 'alguém'})
-        </span>
-      );
+      statusText = <span className="block text-sm font-semibold text-gray-600">Comprado (por {purchaserName || 'alguém'})</span>;
       break;
     default: // AVAILABLE
       bgColor = 'bg-white';
@@ -71,9 +72,7 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
               </button>
             )}
             <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Deletar item">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.576 0H3.398c-.621 0-1.125.504-1.125 1.125s.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125s-.504-1.125-1.125-1.125Z" />
-              </svg>
+              <DeleteIcon />
             </button>
           </div>
         </div>
@@ -87,7 +86,7 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
 }
 
 
-// --- Página Principal de Edição (REFATORADA) ---
+// --- Página Principal de Edição (ATUALIZADA) ---
 export default function EditListPage() {
   const { slug } = useParams();
   const { user } = useAuth();
@@ -99,12 +98,7 @@ export default function EditListPage() {
   // Estado para o formulário de Adicionar/Editar Item
   const [editingItem, setEditingItem] = useState(null);
   const [formValues, setFormValues] = useState({
-    name: '',
-    price: '',
-    linkUrl: '',
-    imageUrl: '',
-    description: '',
-    categoryId: '', // <-- 2. PRECISAMOS DELE NO FORMULÁRIO
+    name: '', price: '', linkUrl: '', imageUrl: '', description: '', categoryId: '',
   });
   const [formError, setFormError] = useState(null);
 
@@ -112,19 +106,20 @@ export default function EditListPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryError, setCategoryError] = useState(null);
 
-  // --- 3. Função para buscar os dados da lista (agora com categorias) ---
+  // --- 1. NOVOS ESTADOS PARA POLIMENTO ---
+  const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
+  const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
+
+  // --- Função para buscar os dados da lista ---
   const fetchList = async () => {
     try {
       setLoading(true);
-      // O controller (v27) já manda os dados com a nova estrutura
       const data = await apiFetch(`/lists/${slug}`); 
-      
-      if (data.user.id !== user.id) {
+      if (!user || data.user.id !== user.id) {
          setError('Acesso negado. Esta lista não é sua.');
          setLoading(false);
          return;
       }
-      
       setList(data);
       setError(null);
     } catch (err) {
@@ -141,48 +136,73 @@ export default function EditListPage() {
     }
   }, [slug, user]); 
 
-  // --- 4. Funções de Gerenciamento de CATEGORIA ---
+  // --- Funções de Gerenciamento de CATEGORIA ---
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     setCategoryError(null);
     if (!newCategoryName) return;
-
     try {
       const newCategory = await apiFetch('/categories', {
         method: 'POST',
         body: JSON.stringify({ name: newCategoryName, listId: list.id }),
       });
-      
-      // Adiciona a nova categoria (vazia) ao estado
       setList(prevList => ({
         ...prevList,
         categories: [...prevList.categories, { ...newCategory, items: [] }] 
       }));
       setNewCategoryName('');
     } catch (err) {
-      console.error('Erro ao criar categoria:', err);
       setCategoryError(err.data?.message || 'Erro ao criar categoria.');
     }
   };
 
   const handleDeleteCategory = async (categoryId) => {
     if (!window.confirm('Tem certeza? Deletar uma categoria também deletará TODOS os itens dentro dela.')) return;
-
     try {
       await apiFetch(`/categories/${categoryId}`, { method: 'DELETE' });
-      // Remove a categoria do estado
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.filter(c => c.id !== categoryId)
       }));
     } catch (err) {
-      console.error('Erro ao deletar categoria:', err);
       alert('Não foi possível deletar a categoria.');
     }
   };
+  
+  // --- 2. NOVA FUNÇÃO: Renomear Categoria ---
+  const handleStartEditCategory = (category) => {
+    setEditingCategory({ id: category.id, name: category.name });
+  };
+  
+  const handleCancelEditCategory = () => {
+    setEditingCategory({ id: null, name: '' });
+  };
 
-  // --- 5. Funções de Gerenciamento de ITENS (Atualizadas) ---
+  const handleUpdateCategory = async (e) => {
+    e.preventDefault();
+    if (!editingCategory.id || !editingCategory.name) return;
+    
+    try {
+      const updatedCategory = await apiFetch(`/categories/${editingCategory.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: editingCategory.name }),
+      });
+      
+      // Atualiza o nome da categoria no estado
+      setList(prevList => ({
+        ...prevList,
+        categories: prevList.categories.map(c => 
+          c.id === updatedCategory.id ? { ...c, name: updatedCategory.name } : c
+        )
+      }));
+      handleCancelEditCategory(); // Sai do modo de edição
+    } catch (err) {
+      console.error('Erro ao renomear categoria:', err);
+      alert('Não foi possível renomear a categoria.');
+    }
+  };
 
+  // --- Funções de Gerenciamento de ITENS (sem mudanças) ---
   const resetForm = () => {
     setFormValues({ name: '', price: '', linkUrl: '', imageUrl: '', description: '', categoryId: '' });
     setFormError(null);
@@ -192,13 +212,10 @@ export default function EditListPage() {
   const handleSubmitItem = async (e) => {
     e.preventDefault();
     setFormError(null);
-
-    // Validação
     if (!formValues.categoryId) {
       setFormError('Você deve selecionar uma categoria.');
       return;
     }
-
     if (editingItem) {
       handleUpdateItem();
     } else {
@@ -209,14 +226,10 @@ export default function EditListPage() {
   const handleCreateItem = async () => {
     try {
       const priceValue = formValues.price ? parseFloat(formValues.price) : null;
-      
-      // Chama a API (o controller v28 já espera categoryId)
       const newItem = await apiFetch('/items', {
         method: 'POST',
         body: JSON.stringify({ ...formValues, price: priceValue }),
       });
-
-      // Adiciona o novo item NA CATEGORIA CORRETA no estado
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => 
@@ -226,9 +239,7 @@ export default function EditListPage() {
         )
       }));
       resetForm();
-
     } catch (err) {
-      console.error('Erro ao adicionar item:', err);
       setFormError(err.data?.message || 'Erro ao adicionar item.');
     }
   };
@@ -237,27 +248,20 @@ export default function EditListPage() {
     if (!editingItem) return;
     try {
       const priceValue = formValues.price ? parseFloat(formValues.price) : null;
-      
       const updatedItem = await apiFetch(`/items/${editingItem.id}`, {
         method: 'PUT',
         body: JSON.stringify({ ...formValues, price: priceValue }),
       });
-
-      // Lógica complexa para atualizar o item no estado
       setList(prevList => {
         const newCategories = prevList.categories.map(c => {
-          // 1. Remove o item da categoria antiga (se a categoria mudou)
           if (c.id === editingItem.categoryId && c.id !== updatedItem.categoryId) {
             return { ...c, items: c.items.filter(i => i.id !== editingItem.id) };
           }
-          // 2. Adiciona/Atualiza o item na categoria nova
           if (c.id === updatedItem.categoryId) {
             const itemExists = c.items.find(i => i.id === updatedItem.id);
             if (itemExists) {
-              // Atualiza
               return { ...c, items: c.items.map(i => i.id === updatedItem.id ? updatedItem : i) };
             } else {
-              // Adiciona (mudou de categoria)
               return { ...c, items: [...c.items, updatedItem] };
             }
           }
@@ -265,11 +269,8 @@ export default function EditListPage() {
         });
         return { ...prevList, categories: newCategories };
       });
-      
       resetForm();
-
     } catch (err) {
-      console.error('Erro ao atualizar item:', err);
       setFormError(err.data?.message || 'Erro ao atualizar item.');
     }
   };
@@ -278,7 +279,6 @@ export default function EditListPage() {
     if (!window.confirm('Tem certeza que quer deletar este item?')) return;
     try {
       await apiFetch(`/items/${itemId}`, { method: 'DELETE' });
-      // Remove o item de qualquer categoria que ele esteja
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => ({
@@ -287,7 +287,6 @@ export default function EditListPage() {
         }))
       }));
     } catch (err) {
-      console.error('Erro ao deletar item:', err);
       alert('Não foi possível deletar o item.');
     }
   };
@@ -300,14 +299,13 @@ export default function EditListPage() {
       linkUrl: item.linkUrl || '',
       imageUrl: item.imageUrl || '',
       description: item.description || '',
-      categoryId: item.categoryId, // <-- Pega o categoryId do item
+      categoryId: item.categoryId,
     });
     setFormError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
-  // --- Funções de Moderação de Reserva (Sem alteração, mas precisam atualizar o estado aninhado) ---
-
+  
+  // --- Funções de Moderação de Reserva (sem mudanças) ---
   const updateItemInState = (updatedItem) => {
     setList(prevList => ({
       ...prevList,
@@ -337,10 +335,9 @@ export default function EditListPage() {
     }
   };
 
-  // --- 6. Cálculo da Barra de Progresso ---
+  // --- Cálculo da Barra de Progresso (sem mudanças) ---
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
-
   useEffect(() => {
     if (list) {
       let total = 0;
@@ -352,57 +349,74 @@ export default function EditListPage() {
       setTotalItems(total);
       setPurchasedItems(purchased);
     }
-  }, [list]); // Recalcula sempre que a lista mudar
+  }, [list]); 
 
+  // --- 3. NOVA FUNÇÃO: Copiar Link ---
+  const handleCopyLink = () => {
+    const publicUrl = `${window.location.origin}/lista/${list.slug}`;
+    
+    // Para copiar texto para o clipboard
+    const textArea = document.createElement('textarea');
+    textArea.value = publicUrl;
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      setCopyButtonText('Copiado!');
+      setTimeout(() => setCopyButtonText('Copiar Link'), 2000);
+    } catch (err) {
+      console.error('Falha ao copiar link: ', err);
+      setCopyButtonText('Falhou!');
+    }
+    document.body.removeChild(textArea);
+  };
 
   // --- Renderização ---
-  if (loading) {
-    return <p className="text-center text-xl mt-10">Carregando gerenciador...</p>;
-  }
-  if (error) {
-    return <p className="text-center text-xl text-red-600 mt-10">{error}</p>;
-  }
-  if (!list) {
-    return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
-  }
+  if (loading) return <p className="text-center text-xl mt-10">Carregando gerenciador...</p>;
+  if (error) return <p className="text-center text-xl text-red-600 mt-10">{error}</p>;
+  if (!list) return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
 
   return (
     <>
       {/* Cabeçalho */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800">{list.title}</h1>
-          <p className="text-lg text-gray-600">Modo de Gerenciamento</p>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">{list.title}</h1>
+            <p className="text-lg text-gray-600">Modo de Gerenciamento</p>
+          </div>
+          {/* --- 4. NOVOS BOTÕES DE AÇÃO --- */}
+          <div className="flex space-x-2 mt-4 sm:mt-0">
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center space-x-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <CopyIcon />
+              <span>{copyButtonText}</span>
+            </button>
+            <Link 
+              to={`/lista/${list.slug}`} 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50"
+            >
+              Ver Página Pública
+            </Link>
+          </div>
         </div>
-        <Link 
-          to={`/lista/${list.slug}`} 
-          target="_blank"
-          rel="noopener noreferrer"
-          className="py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50"
-        >
-          Ver Página Pública
-        </Link>
       </div>
       
-      {/* --- 7. BARRA DE PROGRESSO --- */}
       <ProgressBar total={totalItems} comprados={purchasedItems} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
         {/* Coluna 1: Formulários (Categoria e Itens) */}
         <div className="md:col-span-1 space-y-6">
-          {/* Formulário de Adicionar Categoria */}
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
             <h2 className="text-xl font-bold mb-4">Adicionar Categoria</h2>
             <form onSubmit={handleCreateCategory} className="flex space-x-2">
-              <input 
-                type="text" 
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                placeholder="Ex: Cozinha"
-                required
-                className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
+              <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Ex: Cozinha" required className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
               <button type="submit" className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-700 hover:bg-gray-800">
                 Criar
               </button>
@@ -410,30 +424,20 @@ export default function EditListPage() {
             {categoryError && <p className="text-sm text-red-600 mt-2">{categoryError}</p>}
           </div>
 
-          {/* Formulário de Adicionar/Editar Item */}
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-48">
             <h2 className="text-xl font-bold mb-4">
               {editingItem ? `Editando: ${editingItem.name}` : 'Adicionar Novo Item'}
             </h2>
             <form onSubmit={handleSubmitItem} className="space-y-4">
-              
-              {/* --- 8. SELETOR DE CATEGORIA --- */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoria*</label>
-                <select 
-                  id="category" 
-                  value={formValues.categoryId} 
-                  onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))}
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
+                <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Selecione uma categoria...</option>
                   {list.categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </div>
-
               <div>
                 <label htmlFor="itemName" className="block text-sm font-medium text-gray-700">Nome do Item*</label>
                 <input type="text" id="itemName" value={formValues.name} onChange={(e) => setFormValues(f => ({ ...f, name: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
@@ -454,9 +458,7 @@ export default function EditListPage() {
                 <label htmlFor="itemDesc" className="block text-sm font-medium text-gray-700">Descrição</label>
                 <textarea id="itemDesc" value={formValues.description} onChange={(e) => setFormValues(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
-              
               {formError && <p className="text-sm text-red-600">{formError}</p>}
-              
               <div className="space-y-2">
                 <button type="submit" className={`w-full py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white ${editingItem ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
                   {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
@@ -478,19 +480,51 @@ export default function EditListPage() {
               <p className="text-gray-600">Nenhuma categoria criada ainda. Crie sua primeira categoria no formulário ao lado.</p>
             </div>
           ) : (
-            // --- 9. RENDERIZAÇÃO EM GRUPOS ---
             list.categories.map(category => (
               <div key={category.id} className="bg-white p-6 rounded-lg shadow-md">
-                {/* Cabeçalho da Categoria */}
+                
+                {/* --- 5. CABEÇALHO DA CATEGORIA (ATUALIZADO) --- */}
                 <div className="flex justify-between items-center mb-4 pb-4 border-b">
-                  <h2 className="text-2xl font-bold">{category.name}</h2>
-                  <button 
-                    onClick={() => handleDeleteCategory(category.id)}
-                    className="text-red-500 hover:text-red-700 text-sm font-medium"
-                  >
-                    Deletar Categoria
-                  </button>
+                  {editingCategory.id === category.id ? (
+                    // --- Modo de Edição
+                    <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2">
+                      <input 
+                        type="text"
+                        value={editingCategory.name}
+                        onChange={(e) => setEditingCategory(c => ({ ...c, name: e.target.value }))}
+                        className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                        autoFocus
+                      />
+                      <button type="submit" className="text-green-600 hover:text-green-800">Salvar</button>
+                      <button type="button" onClick={handleCancelEditCategory} className="text-gray-500 hover:text-gray-700">Cancelar</button>
+                    </form>
+                  ) : (
+                    // --- Modo de Visualização
+                    <div className="flex items-center space-x-3">
+                      <h2 className="text-2xl font-bold">{category.name}</h2>
+                      <button 
+                        onClick={() => handleStartEditCategory(category)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Renomear Categoria"
+                      >
+                        <EditIcon />
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Botão de Deletar só aparece se NÃO estiver editando */}
+                  {editingCategory.id !== category.id && (
+                    <button 
+                      onClick={() => handleDeleteCategory(category.id)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center space-x-1"
+                      title="Deletar Categoria"
+                    >
+                      <DeleteIcon />
+                      <span>Deletar</span>
+                    </button>
+                  )}
                 </div>
+                
                 {/* Itens da Categoria */}
                 {category.items.length === 0 ? (
                   <p className="text-gray-500 text-sm">Nenhum item nesta categoria. Adicione um item usando o formulário ao lado.</p>
