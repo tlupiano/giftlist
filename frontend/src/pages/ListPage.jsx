@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
-import ProgressBar from '../components/ProgressBar'; // <-- 1. IMPORTAR
+import ProgressBar from '../components/ProgressBar';
 
 // --- Componente Modal de Reserva (sem mudanças) ---
 function ReservationModal({ item, onClose, onSubmit, error }) {
@@ -13,9 +13,6 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
     e.preventDefault();
     if (!name) return;
     setIsSubmitting(true);
-    // Chama a função onSubmit (que agora é handleConfirmReservation)
-    // Se der erro, o `onSubmit` vai setar o erro e não vai fechar
-    // Se der certo, o `onSubmit` vai fechar o modal
     await onSubmit(name, email); 
     setIsSubmitting(false);
   };
@@ -130,19 +127,15 @@ export default function ListPage() {
   const [modalItem, setModalItem] = useState(null);
   const [modalError, setModalError] = useState(null);
 
-  // --- 2. Estados para a Barra de Progresso ---
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
 
-  // --- 3. Função de Fetch (Atualizada) ---
+  // --- Função de Fetch (sem mudança) ---
   const fetchList = async () => {
     try {
-      // Não precisamos 'setLoading(true)' aqui, o useEffect cuida disso
       const data = await apiFetch(`/lists/${slug}`);
       setList(data);
       setError(null);
-
-      // --- 4. Cálculo da Barra de Progresso ---
       let total = 0;
       let purchased = 0;
       data.categories.forEach(c => {
@@ -151,7 +144,6 @@ export default function ListPage() {
       });
       setTotalItems(total);
       setPurchasedItems(purchased);
-
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
       setError(err.message || 'Erro ao carregar a lista.');
@@ -165,12 +157,12 @@ export default function ListPage() {
     fetchList();
   }, [slug]);
 
+  // --- Lógica de Reserva (sem mudança) ---
   const handleReserveClick = (item) => {
     setModalError(null);
     setModalItem(item);
   };
 
-  // --- 5. Lógica de Reserva (Atualizada) ---
   const handleConfirmReservation = async (purchaserName, purchaserEmail) => {
     if (!modalItem) return;
     setModalError(null);
@@ -179,8 +171,6 @@ export default function ListPage() {
         method: 'PATCH',
         body: JSON.stringify({ purchaserName, purchaserEmail }),
       });
-
-      // Atualiza o estado local (agora aninhado)
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => ({
@@ -188,9 +178,7 @@ export default function ListPage() {
           items: c.items.map(i => i.id === modalItem.id ? updatedItem : i)
         }))
       }));
-      
       setModalItem(null);
-
     } catch (err) {
       console.error('Erro ao reservar item:', err);
       setModalError(err.data?.message || 'Não foi possível reservar o item.');
@@ -208,10 +196,13 @@ export default function ListPage() {
     return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
   }
 
-  // --- 6. RENDERIZAÇÃO ATUALIZADA ---
+  // --- 1. (Polimento) NOVA LÓGICA: Filtrar categorias vazias ---
+  // Filtramos as categorias que serão RENDERIZADAS
+  const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
+
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Cabeçalho da Lista */}
+      {/* Cabeçalho da Lista (sem mudança) */}
       <div className="bg-white p-8 rounded-lg shadow-md text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-2">{list.title}</h1>
         <p className="text-lg text-gray-600">Criada por {list.user.name}</p>
@@ -220,36 +211,39 @@ export default function ListPage() {
         )}
       </div>
 
-      {/* --- 7. BARRA DE PROGRESSO --- */}
+      {/* Barra de Progresso (sem mudança) */}
       <ProgressBar total={totalItems} comprados={purchasedItems} />
 
-      {/* --- 8. Seção de Categorias e Itens --- */}
+      {/* --- 2. (Polimento) Seção de Categorias e Itens (ATUALIZADA) --- */}
       {list.categories.length === 0 ? (
+         // Nenhuma categoria foi criada ainda
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
+        </div>
+      ) : categoriesWithItems.length === 0 ? (
+        // Categorias existem, mas estão todas vazias
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
         </div>
       ) : (
+        // Renderiza APENAS as categorias que têm itens
         <div className="space-y-8">
-          {list.categories.map(category => (
+          {categoriesWithItems.map(category => (
             <div key={category.id}>
               {/* Título da Categoria */}
               <h2 className="text-2xl font-bold mb-4 text-gray-800 pb-2 border-b-2 border-blue-200">
                 {category.name}
               </h2>
-              {/* Grid de Itens */}
-              {category.items.length === 0 ? (
-                <p className="text-gray-500 text-sm ml-2">Nenhum item nesta categoria.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {category.items.map((item) => (
-                    <ItemCard 
-                      key={item.id} 
-                      item={item} 
-                      onReserveClick={handleReserveClick} 
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Grid de Itens (agora sabemos que .items.length > 0) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {category.items.map((item) => (
+                  <ItemCard 
+                    key={item.id} 
+                    item={item} 
+                    onReserveClick={handleReserveClick} 
+                  />
+                ))}
+              </div>
             </div>
           ))}
         </div>
