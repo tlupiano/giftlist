@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom'; // <-- Importar useNavigate
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
@@ -27,6 +27,83 @@ function CopyIcon() {
   );
 }
 // --- Fim dos Ícones ---
+
+// --- NOVO Componente: Modal de Edição da Lista ---
+function EditListModal({ list, onClose, onSave, error }) {
+  const [form, setForm] = useState({
+    title: list.title || '',
+    description: list.description || '',
+    eventDate: list.eventDate ? list.eventDate.split('T')[0] : '', // Formato YYYY-MM-DD
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title) return; // Validação simples
+    setIsSubmitting(true);
+    await onSave(form); // Chama a função onSave passada como prop
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
+      <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-4">Editar Detalhes da Lista</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="listTitle" className="block text-sm font-medium text-gray-700">Título*</label>
+            <input
+              type="text"
+              id="listTitle"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="listEventDate" className="block text-sm font-medium text-gray-700">Data do Evento</label>
+            <input
+              type="date"
+              id="listEventDate"
+              name="eventDate"
+              value={form.eventDate}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="listDescription" className="block text-sm font-medium text-gray-700">Descrição</label>
+            <textarea
+              id="listDescription"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={3}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+            />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end space-x-3">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={isSubmitting} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
+              {isSubmitting ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 
 // --- Componente de Card de Item (Admin) (sem mudança) ---
 function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
@@ -89,6 +166,7 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
 export default function EditListPage() {
   const { slug } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate(); // <-- Para redirecionar após deletar
   
   const [list, setList] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -106,12 +184,15 @@ export default function EditListPage() {
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
 
-  // --- 1. FUNÇÃO DE FETCH ATUALIZADA ---
-  // Adicionamos 'isSilent' para evitar o pisca-pisca do "Carregando"
+  // --- NOVOS Estados para Modal de Edição ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [modalError, setModalError] = useState(null);
+
+  // --- 1. FUNÇÃO DE FETCH (sem mudança) ---
   const fetchList = async (isSilent = false) => {
     try {
       if (!isSilent) {
-        setLoading(true); // Só mostra "Carregando" na primeira vez
+        setLoading(true); 
       }
       const data = await apiFetch(`/lists/${slug}`); 
       
@@ -125,7 +206,6 @@ export default function EditListPage() {
       setError(null);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
-      // Não mostra erros de "polling" silencioso, a menos que a lista suma
       if (!isSilent || !list) {
         setError(err.message || 'Erro ao carregar a lista.');
       }
@@ -136,30 +216,25 @@ export default function EditListPage() {
     }
   };
 
-  // Efeito para o carregamento inicial (NÃO silencioso)
+  // Efeito para o carregamento inicial
   useEffect(() => {
     if (user) { 
       fetchList(false);
     }
   }, [slug, user]); 
 
-  // --- 2. NOVO EFEITO: Polling para atualizações ---
+  // --- 2. EFEITO Polling (sem mudança) ---
   useEffect(() => {
-    // Só começa o polling DEPOIS que a lista já foi carregada 1 vez
     if (!list) {
       return; 
     }
-
-    // Define um intervalo para verificar atualizações a cada 30 segundos
     const intervalId = setInterval(() => {
       console.log("[Polling] Verificando atualizações silenciosamente...");
-      fetchList(true); // Chama o fetch em modo "silencioso"
-    }, 30000); // 30000 ms = 30 segundos
+      fetchList(true); 
+    }, 30000); 
 
-    // Função de limpeza: para o intervalo quando o usuário sai da página
     return () => clearInterval(intervalId);
-
-  }, [list, slug]); // Depende de 'list' e 'slug'
+  }, [list, slug]); 
 
   // --- Funções de Gerenciamento de CATEGORIA (sem mudança) ---
   const handleCreateCategory = async (e) => {
@@ -180,7 +255,6 @@ export default function EditListPage() {
       setCategoryError(err.data?.message || 'Erro ao criar categoria.');
     }
   };
-
   const handleDeleteCategory = async (categoryId) => {
     if (!window.confirm('Tem certeza? Deletar uma categoria também deletará TODOS os itens dentro dela.')) return;
     try {
@@ -193,15 +267,12 @@ export default function EditListPage() {
       alert('Não foi possível deletar a categoria.');
     }
   };
-  
   const handleStartEditCategory = (category) => {
     setEditingCategory({ id: category.id, name: category.name });
   };
-  
   const handleCancelEditCategory = () => {
     setEditingCategory({ id: null, name: '' });
   };
-
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     if (!editingCategory.id || !editingCategory.name) return;
@@ -228,7 +299,6 @@ export default function EditListPage() {
     setFormError(null);
     setEditingItem(null);
   };
-
   const handleSubmitItem = async (e) => {
     e.preventDefault();
     setFormError(null);
@@ -242,7 +312,6 @@ export default function EditListPage() {
       handleCreateItem();
     }
   };
-
   const handleCreateItem = async () => {
     try {
       const priceValue = formValues.price ? parseFloat(formValues.price) : null;
@@ -263,7 +332,6 @@ export default function EditListPage() {
       setFormError(err.data?.message || 'Erro ao adicionar item.');
     }
   };
-
   const handleUpdateItem = async () => {
     if (!editingItem) return;
     try {
@@ -294,7 +362,6 @@ export default function EditListPage() {
       setFormError(err.data?.message || 'Erro ao atualizar item.');
     }
   };
-
   const handleDeleteItem = async (itemId) => {
     if (!window.confirm('Tem certeza que quer deletar este item?')) return;
     try {
@@ -310,7 +377,6 @@ export default function EditListPage() {
       alert('Não foi possível deletar o item.');
     }
   };
-
   const handleStartEdit = (item) => {
     setEditingItem(item);
     setFormValues({
@@ -335,7 +401,6 @@ export default function EditListPage() {
       }))
     }));
   };
-
   const handleConfirmPurchase = async (itemId) => {
     try {
       const updatedItem = await apiFetch(`/items/${itemId}/confirm`, { method: 'PATCH' });
@@ -344,7 +409,6 @@ export default function EditListPage() {
       alert('Não foi possível confirmar a compra.');
     }
   };
-
   const handleCancelReservation = async (itemId) => {
     if (!window.confirm('Cancelar esta reserva? O item ficará disponível.')) return;
     try {
@@ -354,6 +418,44 @@ export default function EditListPage() {
       alert('Não foi possível cancelar a reserva.');
     }
   };
+
+  // --- NOVAS: FUNÇÕES DE GERENCIAMENTO DA LISTA ---
+  const handleUpdateListDetails = async (formData) => {
+    setModalError(null);
+    try {
+      const updatedList = await apiFetch(`/lists/${slug}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          eventDate: formData.eventDate || null,
+        }),
+      });
+      
+      // Atualiza o estado da lista local
+      setList(prevList => ({ ...prevList, ...updatedList }));
+      setIsEditModalOpen(false); // Fecha o modal
+      
+    } catch (err) {
+      console.error('Erro ao atualizar lista:', err);
+      setModalError(err.data?.message || 'Não foi possível salvar as alterações.');
+    }
+  };
+
+  const handleDeleteList = async () => {
+    if (!window.confirm('TEM CERTEZA?\n\nDeletar esta lista irá remover TODAS as categorias e TODOS os itens contidos nela. Esta ação é irreversível.')) {
+      return;
+    }
+    try {
+      await apiFetch(`/lists/${slug}`, { method: 'DELETE' });
+      // Sucesso, redireciona para o dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Erro ao deletar lista:', err);
+      alert(err.data?.message || 'Não foi possível deletar a lista.');
+    }
+  };
+
 
   // --- Cálculo da Barra de Progresso (sem mudança) ---
   const [totalItems, setTotalItems] = useState(0);
@@ -400,21 +502,42 @@ export default function EditListPage() {
 
   return (
     <>
-      {/* Cabeçalho (sem mudança) */}
+      {/* Cabeçalho (ATUALIZADO com botões) */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
+          {/* Título e Descrição */}
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{list.title}</h1>
             <p className="text-lg text-gray-600">Modo de Gerenciamento</p>
+            {/* Botão de Editar Detalhes */}
+            <button 
+              onClick={() => {
+                setModalError(null);
+                setIsEditModalOpen(true);
+              }}
+              className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+            >
+              <EditIcon />
+              <span>Editar Detalhes da Lista</span>
+            </button>
           </div>
-          <div className="flex space-x-2">
-            <button onClick={handleCopyLink} className="flex items-center space-x-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <button onClick={handleCopyLink} className="flex items-center justify-center space-x-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
               <CopyIcon />
               <span>{copyButtonText}</span>
             </button>
-            <Link to={`/lista/${list.slug}`} target="_blank" rel="noopener noreferrer" className="py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50">
+            <Link to={`/lista/${list.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50">
               Ver Página Pública
             </Link>
+            {/* Botão de Deletar Lista */}
+            <button 
+              onClick={handleDeleteList}
+              className="flex items-center justify-center space-x-1 py-2 px-4 border border-red-500 bg-red-50 text-red-600 rounded-md shadow-sm text-sm font-medium hover:bg-red-100"
+            >
+              <DeleteIcon />
+              <span>Deletar Lista</span>
+            </button>
           </div>
         </div>
       </div>
@@ -558,6 +681,16 @@ export default function EditListPage() {
           )}
         </div>
       </div>
+
+      {/* --- Renderização do NOVO Modal --- */}
+      {isEditModalOpen && (
+        <EditListModal
+          list={list}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleUpdateListDetails}
+          error={modalError}
+        />
+      )}
     </>
   );
 }
