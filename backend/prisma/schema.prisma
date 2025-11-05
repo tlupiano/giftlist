@@ -9,7 +9,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---- MODELO DE USUÁRIO (Existente) ----
+// ---- MODELO DE USUÁRIO (Sem alteração) ----
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -20,7 +20,7 @@ model User {
   lists     GiftList[]
 }
 
-// ---- MODELO DA LISTA (Existente) ----
+// ---- MODELO DA LISTA (Atualizado) ----
 model GiftList {
   id          String    @id @default(uuid())
   title       String
@@ -29,9 +29,31 @@ model GiftList {
   slug        String    @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items       Item[]
+
+  // Relacionamento: A lista pertence a UM usuário
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // --- MUDANÇA AQUI ---
+  // Uma lista não tem mais "itens" diretos.
+  // Uma lista agora tem VÁRIAS "categorias"
+  categories Category[]
+}
+
+// ---- NOVO MODELO: CATEGORIA ----
+// (Ex: "Cozinha", "Quarto", "Banheiro")
+model Category {
+  id        String   @id @default(uuid())
+  name      String   // Nome da categoria
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento: Categoria pertence a UMA lista
+  listId String
+  list   GiftList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  // Relacionamento: Categoria tem VÁRIOS itens
+  items Item[]
 }
 
 // ---- MODELO DO ITEM (Atualizado) ----
@@ -42,22 +64,23 @@ model Item {
   price       Float?
   imageUrl    String?
   linkUrl     String?
-  status      ItemStatus @default(AVAILABLE) // O status agora tem 3 opções
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  status      ItemStatus @default(AVAILABLE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  // --- MUDANÇA AQUI: Campos para Reserva ---
-  purchaserName  String? // Nome do convidado que reservou
-  purchaserEmail String? // Email (opcional) do convidado
+  purchaserName  String?
+  purchaserEmail String?
 
-  // Relacionamento: O item pertence a UMA lista
-  listId String
-  list   GiftList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  // --- MUDANÇA AQUI ---
+  // Um item não pertence mais a uma "lista"
+  // Um item agora pertence a UMA "categoria"
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
-// ---- ENUM DE STATUS (Atualizado) ----
+// ---- ENUM DE STATUS (Sem alteração) ----
 enum ItemStatus {
-  AVAILABLE // Disponível
-  RESERVED  // Reservado pelo convidado
-  PURCHASED // Compra confirmada pelo dono
+  AVAILABLE
+  RESERVED
+  PURCHASED
 }
