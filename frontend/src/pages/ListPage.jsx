@@ -1,43 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
+import ProgressBar from '../components/ProgressBar'; // <-- 1. IMPORTAR
 
-// --- NOVO: Componente Modal de Reserva ---
-// (Colocamos aqui para manter o arquivo único)
+// --- Componente Modal de Reserva (sem mudanças) ---
 function ReservationModal({ item, onClose, onSubmit, error }) {
   const [name, setName] = useState('');
-  const [email, setEmail] = useState(''); // Opcional
+  const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name) return; // Validação simples
-    
+    if (!name) return;
     setIsSubmitting(true);
-    await onSubmit(name, email);
-    // O 'onClose' só será chamado pelo componente pai se der certo
+    // Chama a função onSubmit (que agora é handleConfirmReservation)
+    // Se der erro, o `onSubmit` vai setar o erro e não vai fechar
+    // Se der certo, o `onSubmit` vai fechar o modal
+    await onSubmit(name, email); 
     setIsSubmitting(false);
   };
 
   return (
-    // Overlay (fundo escuro)
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center"
-      onClick={onClose} // Fecha ao clicar fora
-    >
-      {/* Conteúdo do Modal */}
-      <div 
-        className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-sm w-full"
-        onClick={(e) => e.stopPropagation()} // Impede de fechar ao clicar dentro
-      >
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
+      <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Reservar Item</h2>
         <p className="mb-4">Você está reservando: <span className="font-semibold">{item.name}</span></p>
-        
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label htmlFor="purchaserName" className="block text-sm font-medium text-gray-700">
-              Seu nome*
-            </label>
+            <label htmlFor="purchaserName" className="block text-sm font-medium text-gray-700">Seu nome*</label>
             <input
               type="text"
               id="purchaserName"
@@ -48,9 +38,7 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
             />
           </div>
           <div className="mb-4">
-            <label htmlFor="purchaserEmail" className="block text-sm font-medium text-gray-700">
-              Seu email (Opcional)
-            </label>
+            <label htmlFor="purchaserEmail" className="block text-sm font-medium text-gray-700">Seu email (Opcional)</label>
             <input
               type="email"
               id="purchaserEmail"
@@ -58,27 +46,13 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
-            <p className="mt-1 text-xs text-gray-500">Usado para o dono da lista saber quem é você.</p>
           </div>
-
-          {error && (
-            <p className="text-sm text-red-600 mb-4">{error}</p>
-          )}
-
+          {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
           <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-            >
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none disabled:opacity-50"
-            >
+            <button type="submit" disabled={isSubmitting} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
               {isSubmitting ? 'Reservando...' : 'Confirmar Reserva'}
             </button>
           </div>
@@ -88,11 +62,9 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
   );
 }
 
-
-// --- Componente de Card de Item (Atualizado) ---
+// --- Componente de Card de Item (sem mudanças) ---
 function ItemCard({ item, onReserveClick }) {
-  const { status } = item; // <-- MUDANÇA: Não precisamos mais do 'purchaserName' aqui
-
+  const { status } = item;
   let buttonContent;
   let isDisabled = false;
   let bgColor = 'bg-white';
@@ -100,8 +72,6 @@ function ItemCard({ item, onReserveClick }) {
 
   switch (status) {
     case 'RESERVED':
-      // --- MUDANÇA AQUI ---
-      // Agora mostra apenas "Item Reservado" para privacidade
       buttonContent = 'Item Reservado';
       isDisabled = true;
       bgColor = 'bg-yellow-50';
@@ -119,56 +89,28 @@ function ItemCard({ item, onReserveClick }) {
   }
 
   return (
-    <div 
-      className={`border rounded-lg shadow-md overflow-hidden flex flex-col ${bgColor} ${opacity}`}
-    >
-      {/* Imagem */}
+    <div className={`border rounded-lg shadow-md overflow-hidden flex flex-col ${bgColor} ${opacity}`}>
       {item.imageUrl ? (
-        <img 
-          src={item.imageUrl} 
-          alt={item.name} 
-          className="w-full h-48 object-cover"
-          onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/eeeeee/cccccc?text=Imagem+Indisponível"; }}
-        />
+        <img src={item.imageUrl} alt={item.name} className="w-full h-48 object-cover" onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/eeeeee/cccccc?text=Imagem+Indisponível"; }} />
       ) : (
-        <img 
-          src="https://placehold.co/600x400/eeeeee/cccccc?text=Sem+Imagem" 
-          alt={item.name} 
-          className="w-full h-48 object-cover"
-        />
+        <img src="https://placehold.co/600x400/eeeeee/cccccc?text=Sem+Imagem" alt={item.name} className="w-full h-48 object-cover" />
       )}
-      
-      {/* Conteúdo */}
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-        
         {item.price > 0 && (
           <p className="text-lg font-bold text-green-700 my-1">R$ {item.price.toFixed(2)}</p>
         )}
-        
         <p className="text-sm text-gray-600 mt-2 flex-grow">{item.description || 'Nenhuma descrição.'}</p>
-        
         {item.linkUrl && (
-          <a 
-            href={item.linkUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:underline mt-2"
-          >
+          <a href={item.linkUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline mt-2">
             Ver na loja
           </a>
         )}
-
-        {/* Botão (Atualizado) */}
         <div className="mt-4">
           <button
-            onClick={() => onReserveClick(item)} // <-- Chama a função para abrir o modal
+            onClick={() => onReserveClick(item)}
             disabled={isDisabled}
-            className={`w-full py-2 px-4 font-medium rounded-md shadow-sm text-sm
-              ${status === 'AVAILABLE' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
-              ${status === 'RESERVED' ? 'bg-yellow-300 text-yellow-900 cursor-not-allowed' : ''}
-              ${status === 'PURCHASED' ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : ''}
-            `}
+            className={`w-full py-2 px-4 font-medium rounded-md shadow-sm text-sm ${status === 'AVAILABLE' ? 'bg-blue-600 text-white hover:bg-blue-700' : ''} ${status === 'RESERVED' ? 'bg-yellow-300 text-yellow-900 cursor-not-allowed' : ''} ${status === 'PURCHASED' ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : ''}`}
           >
             {buttonContent}
           </button>
@@ -178,67 +120,79 @@ function ItemCard({ item, onReserveClick }) {
   );
 }
 
-
-// --- Componente da Página Principal (Atualizado) ---
+// --- Componente da Página Principal (ATUALIZADO) ---
 export default function ListPage() {
   const { slug } = useParams(); 
   const [list, setList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // --- Estados para o Modal ---
-  const [modalItem, setModalItem] = useState(null); // O item selecionado para o modal
+  const [modalItem, setModalItem] = useState(null);
   const [modalError, setModalError] = useState(null);
 
+  // --- 2. Estados para a Barra de Progresso ---
+  const [totalItems, setTotalItems] = useState(0);
+  const [purchasedItems, setPurchasedItems] = useState(0);
+
+  // --- 3. Função de Fetch (Atualizada) ---
+  const fetchList = async () => {
+    try {
+      // Não precisamos 'setLoading(true)' aqui, o useEffect cuida disso
+      const data = await apiFetch(`/lists/${slug}`);
+      setList(data);
+      setError(null);
+
+      // --- 4. Cálculo da Barra de Progresso ---
+      let total = 0;
+      let purchased = 0;
+      data.categories.forEach(c => {
+        total += c.items.length;
+        purchased += c.items.filter(i => i.status === 'PURCHASED').length;
+      });
+      setTotalItems(total);
+      setPurchasedItems(purchased);
+
+    } catch (err) {
+      console.error("Erro ao buscar lista:", err);
+      setError(err.message || 'Erro ao carregar a lista.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   useEffect(() => {
-    const fetchList = async () => {
-      try {
-        setLoading(true);
-        const data = await apiFetch(`/lists/${slug}`);
-        setList(data);
-        setError(null);
-      } catch (err) {
-        console.error("Erro ao buscar lista:", err);
-        setError(err.message || 'Erro ao carregar a lista.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
     fetchList();
   }, [slug]);
 
-  // --- Função para abrir o modal ---
   const handleReserveClick = (item) => {
-    setModalError(null); // Limpa erros antigos
+    setModalError(null);
     setModalItem(item);
   };
 
-  // --- Função para lidar com a submissão do modal ---
+  // --- 5. Lógica de Reserva (Atualizada) ---
   const handleConfirmReservation = async (purchaserName, purchaserEmail) => {
     if (!modalItem) return;
-    
-    setModalError(null); // Limpa o erro do modal
-
+    setModalError(null);
     try {
-      // Chama nosso novo endpoint público com os dados do convidado
       const updatedItem = await apiFetch(`/items/${modalItem.id}/reserve`, {
         method: 'PATCH',
         body: JSON.stringify({ purchaserName, purchaserEmail }),
       });
 
-      // Atualiza o estado local da lista
-      setList((prevList) => ({
+      // Atualiza o estado local (agora aninhado)
+      setList(prevList => ({
         ...prevList,
-        items: prevList.items.map(item =>
-          item.id === modalItem.id ? updatedItem : item
-        ),
+        categories: prevList.categories.map(c => ({
+          ...c,
+          items: c.items.map(i => i.id === modalItem.id ? updatedItem : i)
+        }))
       }));
       
-      setModalItem(null); // Fecha o modal com sucesso
+      setModalItem(null);
 
     } catch (err) {
       console.error('Erro ao reservar item:', err);
-      // Mostra o erro do backend (ex: "Item já foi comprado") no modal
       setModalError(err.data?.message || 'Não foi possível reservar o item.');
     }
   };
@@ -254,6 +208,7 @@ export default function ListPage() {
     return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
   }
 
+  // --- 6. RENDERIZAÇÃO ATUALIZADA ---
   return (
     <div className="max-w-6xl mx-auto">
       {/* Cabeçalho da Lista */}
@@ -265,28 +220,42 @@ export default function ListPage() {
         )}
       </div>
 
-      {/* Seção de Itens */}
-      <div className="px-4">
-        <h2 className="text-2xl font-bold mb-6 text-center md:text-left">Itens da Lista</h2>
-        
-        {list.items.length === 0 ? (
-          <div className="bg-white p-8 rounded-lg shadow-md text-center">
-            <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {list.items.map((item) => (
-              <ItemCard 
-                key={item.id} 
-                item={item} 
-                onReserveClick={handleReserveClick} 
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* --- 7. BARRA DE PROGRESSO --- */}
+      <ProgressBar total={totalItems} comprados={purchasedItems} />
 
-      {/* --- O Modal (Renderização Condicional) --- */}
+      {/* --- 8. Seção de Categorias e Itens --- */}
+      {list.categories.length === 0 ? (
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {list.categories.map(category => (
+            <div key={category.id}>
+              {/* Título da Categoria */}
+              <h2 className="text-2xl font-bold mb-4 text-gray-800 pb-2 border-b-2 border-blue-200">
+                {category.name}
+              </h2>
+              {/* Grid de Itens */}
+              {category.items.length === 0 ? (
+                <p className="text-gray-500 text-sm ml-2">Nenhum item nesta categoria.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {category.items.map((item) => (
+                    <ItemCard 
+                      key={item.id} 
+                      item={item} 
+                      onReserveClick={handleReserveClick} 
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* O Modal (sem mudanças) */}
       {modalItem && (
         <ReservationModal
           item={modalItem}
