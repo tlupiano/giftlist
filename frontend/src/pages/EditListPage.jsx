@@ -3,8 +3,17 @@ import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
+// --- Componente de Ícone (Lápis para Editar) ---
+function EditIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+    </svg>
+  );
+}
+
 // --- Componente de Card de Item (Versão do Dono) ---
-function AdminItemCard({ item, onConfirm, onCancel, onDelete }) {
+function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) { // <-- 1. Adicionado onEdit
   const { status, purchaserName } = item;
 
   let statusText = '';
@@ -60,12 +69,27 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete }) {
             <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
             {statusText}
           </div>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="text-red-500 hover:text-red-700 text-sm"
-          >
-            Deletar
-          </button>
+          {/* --- 2. Botões de Edição/Deleção --- */}
+          <div className="flex space-x-3">
+            {status === 'AVAILABLE' && ( // Só pode editar se estiver disponível
+              <button
+                onClick={() => onEdit(item)}
+                className="text-blue-600 hover:text-blue-800"
+                title="Editar item"
+              >
+                <EditIcon />
+              </button>
+            )}
+            <button
+              onClick={() => onDelete(item.id)}
+              className="text-red-500 hover:text-red-700"
+              title="Deletar item"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.576 0H3.398c-.621 0-1.125.504-1.125 1.125s.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125s-.504-1.125-1.125-1.125Z" />
+              </svg>
+            </button>
+          </div>
         </div>
         
         {item.price > 0 && (
@@ -84,13 +108,16 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete }) {
 // --- Página Principal de Edição ---
 export default function EditListPage() {
   const { slug } = useParams();
-  const { user } = useAuth(); // Para garantir
+  const { user } = useAuth();
   
   const [list, setList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Estados para o formulário de "Adicionar Item"
+  // --- 3. Estado de Edição ---
+  const [editingItem, setEditingItem] = useState(null); // Guarda o item sendo editado
+
+  // Estados para o formulário (agora controlam Adicionar e Editar)
   const [itemName, setItemName] = useState('');
   const [itemPrice, setItemPrice] = useState('');
   const [itemLink, setItemLink] = useState('');
@@ -101,11 +128,10 @@ export default function EditListPage() {
   // --- Função para buscar os dados da lista ---
   const fetchList = async () => {
     try {
-      // Não precisamos recarregar a lista inteira, apenas setar o loading
-      // O useEffect já vai buscar
       setLoading(true);
       const data = await apiFetch(`/lists/${slug}`);
       
+      // Verificação de segurança (corrigida na v24)
       if (data.user.id !== user.id) {
          setError('Acesso negado. Esta lista não é sua.');
          setLoading(false);
@@ -128,14 +154,34 @@ export default function EditListPage() {
     }
   }, [slug, user]); 
 
-  // --- Funções de Gerenciamento de Itens ---
+  // --- 4. Função para Limpar/Resetar o Formulário ---
+  const resetForm = () => {
+    setItemName('');
+    setItemPrice('');
+    setItemLink('');
+    setItemImage('');
+    setItemDesc('');
+    setFormError(null);
+    setEditingItem(null); // Sai do modo de edição
+  };
 
-  const handleAddItem = async (e) => {
+  // --- 5. Funções de Gerenciamento de Itens ---
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
+
+    // Decide se deve Criar (POST) ou Atualizar (PUT)
+    if (editingItem) {
+      handleUpdateItem();
+    } else {
+      handleCreateItem();
+    }
+  };
+
+  const handleCreateItem = async () => {
     try {
       const priceValue = itemPrice ? parseFloat(itemPrice) : null;
-
       const newItem = await apiFetch('/items', {
         method: 'POST',
         body: JSON.stringify({
@@ -152,12 +198,44 @@ export default function EditListPage() {
         ...prevList,
         items: [...prevList.items, newItem],
       }));
-      
-      setItemName(''); setItemPrice(''); setItemLink(''); setItemImage(''); setItemDesc('');
+      resetForm(); // Limpa o formulário
 
     } catch (err) {
       console.error('Erro ao adicionar item:', err);
       setFormError(err.data?.message || 'Erro ao adicionar item.');
+    }
+  };
+
+  // --- 6. NOVA Função de Atualização de Item ---
+  const handleUpdateItem = async () => {
+    if (!editingItem) return;
+
+    try {
+      const priceValue = itemPrice ? parseFloat(itemPrice) : null;
+      
+      const updatedItem = await apiFetch(`/items/${editingItem.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: itemName,
+          price: priceValue,
+          linkUrl: itemLink,
+          imageUrl: itemImage,
+          description: itemDesc,
+        }),
+      });
+
+      // Atualiza o item na lista local
+      setList((prevList) => ({
+        ...prevList,
+        items: prevList.items.map(item =>
+          item.id === editingItem.id ? updatedItem : item
+        ),
+      }));
+      resetForm(); // Limpa o formulário e sai do modo de edição
+
+    } catch (err) {
+      console.error('Erro ao atualizar item:', err);
+      setFormError(err.data?.message || 'Erro ao atualizar item.');
     }
   };
 
@@ -176,8 +254,24 @@ export default function EditListPage() {
     }
   };
 
-  // --- NOSSAS NOVAS FUNÇÕES DE MODERAÇÃO ---
+  // --- 7. NOVA Função para Iniciar a Edição ---
+  const handleStartEdit = (item) => {
+    setEditingItem(item);
+    setItemName(item.name);
+    setItemPrice(item.price ? String(item.price) : '');
+    setItemLink(item.linkUrl || '');
+    setItemImage(item.imageUrl || '');
+    setItemDesc(item.description || '');
+    setFormError(null);
+    // Leva o usuário de volta ao topo para ver o formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  const handleCancelEdit = () => {
+    resetForm();
+  };
 
+  // --- Funções de Moderação de Reserva ---
   const handleConfirmPurchase = async (itemId) => {
     try {
       const updatedItem = await apiFetch(`/items/${itemId}/confirm`, { method: 'PATCH' });
@@ -210,7 +304,6 @@ export default function EditListPage() {
     }
   };
 
-
   // --- Renderização ---
   if (loading) {
     return <p className="text-center text-xl mt-10">Carregando gerenciador...</p>;
@@ -233,7 +326,7 @@ export default function EditListPage() {
         <Link 
           to={`/lista/${list.slug}`} 
           target="_blank"
-          rel="noopener noreferrer" // Boa prática para target="_blank"
+          rel="noopener noreferrer"
           className="py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50"
         >
           Ver Página Pública
@@ -241,11 +334,14 @@ export default function EditListPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Coluna 1: Adicionar Itens */}
+        {/* Coluna 1: Adicionar/Editar Itens */}
         <div className="md:col-span-1">
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
-            <h2 className="text-2xl font-bold mb-4">Adicionar Novo Item</h2>
-            <form onSubmit={handleAddItem} className="space-y-4">
+            {/* --- 8. Lógica de Título e Botões --- */}
+            <h2 className="text-2xl font-bold mb-4">
+              {editingItem ? `Editando: ${editingItem.name}` : 'Adicionar Novo Item'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="itemName" className="block text-sm font-medium text-gray-700">Nome do Item*</label>
                 <input type="text" id="itemName" value={itemName} onChange={(e) => setItemName(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
@@ -269,9 +365,25 @@ export default function EditListPage() {
               
               {formError && <p className="text-sm text-red-600">{formError}</p>}
               
-              <button type="submit" className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none">
-                Adicionar Item
-              </button>
+              <div className="space-y-2">
+                <button 
+                  type="submit" 
+                  className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white 
+                    ${editingItem ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} 
+                    focus:outline-none`}
+                >
+                  {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
+                </button>
+                {editingItem && (
+                  <button 
+                    type="button" 
+                    onClick={handleCancelEdit}
+                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                  >
+                    Cancelar Edição
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         </div>
@@ -291,6 +403,7 @@ export default function EditListPage() {
                     onConfirm={handleConfirmPurchase}
                     onCancel={handleCancelReservation}
                     onDelete={handleDeleteItem}
+                    onEdit={handleStartEdit} // <-- 9. Passa a função para o card
                   />
                 ))}
               </div>
@@ -301,3 +414,4 @@ export default function EditListPage() {
     </div>
   );
 }
+
