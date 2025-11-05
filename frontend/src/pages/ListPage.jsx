@@ -130,12 +130,17 @@ export default function ListPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
 
-  // --- Função de Fetch (sem mudança) ---
-  const fetchList = async () => {
+  // --- 1. FUNÇÃO DE FETCH ATUALIZADA ---
+  // Adicionamos 'isSilent' para o polling
+  const fetchList = async (isSilent = false) => {
     try {
+      if (!isSilent) {
+        setLoading(true);
+      }
       const data = await apiFetch(`/lists/${slug}`);
       setList(data);
       setError(null);
+      
       let total = 0;
       let purchased = 0;
       data.categories.forEach(c => {
@@ -146,16 +151,35 @@ export default function ListPage() {
       setPurchasedItems(purchased);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
-      setError(err.message || 'Erro ao carregar a lista.');
+      if (!isSilent || !list) {
+        setError(err.message || 'Erro ao carregar a lista.');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
   
+  // Efeito de carregamento inicial
   useEffect(() => {
-    setLoading(true);
-    fetchList();
+    fetchList(false); // Carregamento inicial NÃO silencioso
   }, [slug]);
+
+  // --- 2. NOVO EFEITO: Polling para atualizações ---
+  useEffect(() => {
+    // Só começa o polling DEPOIS que a lista já foi carregada 1 vez
+    if (!list) {
+      return; 
+    }
+    
+    const intervalId = setInterval(() => {
+      console.log("[Polling Página Pública] Verificando atualizações...");
+      fetchList(true); // Chama o fetch em modo "silencioso"
+    }, 10000); // 10 segundos
+
+    return () => clearInterval(intervalId); // Limpa o intervalo
+  }, [list, slug]); // Depende de 'list' e 'slug'
 
   // --- Lógica de Reserva (sem mudança) ---
   const handleReserveClick = (item) => {
@@ -171,6 +195,9 @@ export default function ListPage() {
         method: 'PATCH',
         body: JSON.stringify({ purchaserName, purchaserEmail }),
       });
+      
+      // Atualiza o estado local (agora aninhado)
+      // Esta atualização local é importante para a resposta imediata
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => ({
@@ -178,14 +205,15 @@ export default function ListPage() {
           items: c.items.map(i => i.id === modalItem.id ? updatedItem : i)
         }))
       }));
-      setModalItem(null);
+      setModalItem(null); // Fecha o modal com sucesso
+      
     } catch (err) {
       console.error('Erro ao reservar item:', err);
       setModalError(err.data?.message || 'Não foi possível reservar o item.');
     }
   };
 
-  // --- Renderização ---
+  // --- Renderização (sem mudança, exceto pelo filtro) ---
   if (loading) {
     return <p className="text-center text-xl mt-10">Carregando lista...</p>;
   }
@@ -196,13 +224,10 @@ export default function ListPage() {
     return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
   }
 
-  // --- 1. (Polimento) NOVA LÓGICA: Filtrar categorias vazias ---
-  // Filtramos as categorias que serão RENDERIZADAS
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
 
   return (
     <div className="max-w-6xl mx-auto">
-      {/* Cabeçalho da Lista (sem mudança) */}
       <div className="bg-white p-8 rounded-lg shadow-md text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-800 mb-2">{list.title}</h1>
         <p className="text-lg text-gray-600">Criada por {list.user.name}</p>
@@ -211,30 +236,23 @@ export default function ListPage() {
         )}
       </div>
 
-      {/* Barra de Progresso (sem mudança) */}
       <ProgressBar total={totalItems} comprados={purchasedItems} />
 
-      {/* --- 2. (Polimento) Seção de Categorias e Itens (ATUALIZADA) --- */}
       {list.categories.length === 0 ? (
-         // Nenhuma categoria foi criada ainda
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
         </div>
       ) : categoriesWithItems.length === 0 ? (
-        // Categorias existem, mas estão todas vazias
         <div className="bg-white p-8 rounded-lg shadow-md text-center">
           <p className="text-gray-600">Nenhum item foi adicionado a esta lista ainda.</p>
         </div>
       ) : (
-        // Renderiza APENAS as categorias que têm itens
         <div className="space-y-8">
           {categoriesWithItems.map(category => (
             <div key={category.id}>
-              {/* Título da Categoria */}
               <h2 className="text-2xl font-bold mb-4 text-gray-800 pb-2 border-b-2 border-blue-200">
                 {category.name}
               </h2>
-              {/* Grid de Itens (agora sabemos que .items.length > 0) */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {category.items.map((item) => (
                   <ItemCard 
@@ -249,7 +267,6 @@ export default function ListPage() {
         </div>
       )}
 
-      {/* O Modal (sem mudanças) */}
       {modalItem && (
         <ReservationModal
           item={modalItem}
