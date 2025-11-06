@@ -59,7 +59,8 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
   );
 }
 
-// --- Componente de Card de Item (sem mudanças) ---
+// --- *** ATUALIZADO *** ---
+// --- Componente de Card de Item ---
 function ItemCard({ item, onReserveClick }) {
   const { status } = item;
   let buttonContent;
@@ -85,13 +86,20 @@ function ItemCard({ item, onReserveClick }) {
       isDisabled = false;
   }
 
+  // --- PLACEHOLDER MELHORADO ---
+  const placeholderText = encodeURIComponent(item.name);
+  const placeholderImg = `https://placehold.co/600x400/eeeeee/cccccc?text=${placeholderText}`;
+  const itemImg = item.imageUrl || placeholderImg;
+
   return (
     <div className={`border rounded-lg shadow-md overflow-hidden flex flex-col ${bgColor} ${opacity}`}>
-      {item.imageUrl ? (
-        <img src={item.imageUrl} alt={item.name} className="w-full h-48 object-cover" onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/eeeeee/cccccc?text=Imagem+Indisponível"; }} />
-      ) : (
-        <img src="https://placehold.co/600x400/eeeeee/cccccc?text=Sem+Imagem" alt={item.name} className="w-full h-48 object-cover" />
-      )}
+      <img 
+        src={itemImg} 
+        alt={item.name} 
+        className="w-full h-48 object-cover bg-gray-200" 
+        // --- OnError MELHORADO ---
+        onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }} 
+      />
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
         {item.price > 0 && (
@@ -117,7 +125,7 @@ function ItemCard({ item, onReserveClick }) {
   );
 }
 
-// --- Componente da Página Principal (ATUALIZADO) ---
+// --- Componente da Página Principal (sem mudanças) ---
 export default function ListPage() {
   const { slug } = useParams(); 
   const [list, setList] = useState(null);
@@ -130,8 +138,6 @@ export default function ListPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
 
-  // --- 1. FUNÇÃO DE FETCH ATUALIZADA ---
-  // Adicionamos 'isSilent' para o polling
   const fetchList = async (isSilent = false) => {
     try {
       if (!isSilent) {
@@ -161,27 +167,23 @@ export default function ListPage() {
     }
   };
   
-  // Efeito de carregamento inicial
   useEffect(() => {
-    fetchList(false); // Carregamento inicial NÃO silencioso
+    fetchList(false);
   }, [slug]);
 
-  // --- 2. NOVO EFEITO: Polling para atualizações ---
   useEffect(() => {
-    // Só começa o polling DEPOIS que a lista já foi carregada 1 vez
     if (!list) {
       return; 
     }
     
     const intervalId = setInterval(() => {
       console.log("[Polling Página Pública] Verificando atualizações...");
-      fetchList(true); // Chama o fetch em modo "silencioso"
-    }, 10000); // 10 segundos
+      fetchList(true);
+    }, 10000); 
 
-    return () => clearInterval(intervalId); // Limpa o intervalo
-  }, [list, slug]); // Depende de 'list' e 'slug'
+    return () => clearInterval(intervalId);
+  }, [list, slug]); 
 
-  // --- Lógica de Reserva (sem mudança) ---
   const handleReserveClick = (item) => {
     setModalError(null);
     setModalItem(item);
@@ -196,8 +198,6 @@ export default function ListPage() {
         body: JSON.stringify({ purchaserName, purchaserEmail }),
       });
       
-      // Atualiza o estado local (agora aninhado)
-      // Esta atualização local é importante para a resposta imediata
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => ({
@@ -205,7 +205,7 @@ export default function ListPage() {
           items: c.items.map(i => i.id === modalItem.id ? updatedItem : i)
         }))
       }));
-      setModalItem(null); // Fecha o modal com sucesso
+      setModalItem(null);
       
     } catch (err) {
       console.error('Erro ao reservar item:', err);
@@ -213,7 +213,6 @@ export default function ListPage() {
     }
   };
 
-  // --- Renderização (sem mudança, exceto pelo filtro) ---
   if (loading) {
     return <p className="text-center text-xl mt-10">Carregando lista...</p>;
   }

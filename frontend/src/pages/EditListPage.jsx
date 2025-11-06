@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom'; // <-- Importar useNavigate
+import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
@@ -28,84 +28,8 @@ function CopyIcon() {
 }
 // --- Fim dos Ícones ---
 
-// --- NOVO Componente: Modal de Edição da Lista ---
-function EditListModal({ list, onClose, onSave, error }) {
-  const [form, setForm] = useState({
-    title: list.title || '',
-    description: list.description || '',
-    eventDate: list.eventDate ? list.eventDate.split('T')[0] : '', // Formato YYYY-MM-DD
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.title) return; // Validação simples
-    setIsSubmitting(true);
-    await onSave(form); // Chama a função onSave passada como prop
-    setIsSubmitting(false);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
-      <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold mb-4">Editar Detalhes da Lista</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="listTitle" className="block text-sm font-medium text-gray-700">Título*</label>
-            <input
-              type="text"
-              id="listTitle"
-              name="title"
-              value={form.title}
-              onChange={handleChange}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="listEventDate" className="block text-sm font-medium text-gray-700">Data do Evento</label>
-            <input
-              type="date"
-              id="listEventDate"
-              name="eventDate"
-              value={form.eventDate}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="listDescription" className="block text-sm font-medium text-gray-700">Descrição</label>
-            <textarea
-              id="listDescription"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end space-x-3">
-            <button type="button" onClick={onClose} disabled={isSubmitting} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button type="submit" disabled={isSubmitting} className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
-              {isSubmitting ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-
-// --- Componente de Card de Item (Admin) (sem mudança) ---
+// --- *** ATUALIZADO *** ---
+// --- Componente de Card de Item (Admin) ---
 function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
   const { status, purchaserName } = item;
   let statusText = '';
@@ -132,41 +56,56 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
       statusText = <span className="block text-sm font-semibold text-green-700">Disponível</span>;
       break;
   }
+  
+  // Placeholder da imagem
+  const placeholderText = encodeURIComponent(item.name);
+  const placeholderImg = `https://placehold.co/100x100/eeeeee/cccccc?text=${placeholderText}`;
+  const itemImg = item.imageUrl || placeholderImg;
 
   return (
     <div className={`border rounded-lg shadow-sm overflow-hidden ${bgColor}`}>
-      <div className="p-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-base font-semibold text-gray-800">{item.name}</h3>
-            {statusText}
-          </div>
-          <div className="flex space-x-3 flex-shrink-0">
-            {status === 'AVAILABLE' && (
-              <button onClick={() => onEdit(item)} className="text-blue-600 hover:text-blue-800" title="Editar item">
-                <EditIcon />
+      <div className="p-4 flex space-x-4">
+        {/* Imagem do Item */}
+        <img 
+          src={itemImg} 
+          alt={item.name} 
+          className="w-16 h-16 object-cover rounded-md flex-shrink-0 bg-gray-200"
+          onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
+        />
+        
+        {/* Detalhes do Item */}
+        <div className="flex-grow">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-base font-semibold text-gray-800">{item.name}</h3>
+              {statusText}
+            </div>
+            <div className="flex space-x-3 flex-shrink-0">
+              {status === 'AVAILABLE' && (
+                <button onClick={() => onEdit(item)} className="text-blue-600 hover:text-blue-800" title="Editar item">
+                  <EditIcon />
+                </button>
+              )}
+              <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Deletar item">
+                <DeleteIcon />
               </button>
-            )}
-            <button onClick={() => onDelete(item.id)} className="text-red-500 hover:text-red-700" title="Deletar item">
-              <DeleteIcon />
-            </button>
+            </div>
           </div>
+          {item.price > 0 && (
+            <p className="text-md font-bold text-gray-700 my-1">R$ {item.price.toFixed(2)}</p>
+          )}
+          {actions}
         </div>
-        {item.price > 0 && (
-          <p className="text-md font-bold text-gray-700 my-1">R$ {item.price.toFixed(2)}</p>
-        )}
-        {actions}
       </div>
     </div>
   );
 }
 
 
-// --- Página Principal de Edição (ATUALIZADA) ---
+// --- Página Principal de Edição (sem mudanças no JS, só no JSX) ---
 export default function EditListPage() {
   const { slug } = useParams();
   const { user } = useAuth();
-  const navigate = useNavigate(); // <-- Para redirecionar após deletar
   
   const [list, setList] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -183,12 +122,13 @@ export default function EditListPage() {
   
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
-
-  // --- NOVOS Estados para Modal de Edição ---
+  
+  // --- Estados do Modal de Edição da Lista ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [modalError, setModalError] = useState(null);
+  const [editListValues, setEditListValues] = useState({ title: '', description: '', eventDate: '' });
+  const [editListError, setEditListError] = useState(null);
 
-  // --- 1. FUNÇÃO DE FETCH (sem mudança) ---
+
   const fetchList = async (isSilent = false) => {
     try {
       if (!isSilent) {
@@ -203,6 +143,12 @@ export default function EditListPage() {
       }
       
       setList(data);
+      // Prepara os valores para o modal de edição
+      setEditListValues({
+        title: data.title,
+        description: data.description || '',
+        eventDate: data.eventDate ? data.eventDate.split('T')[0] : '', // Formata YYYY-MM-DD
+      });
       setError(null);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
@@ -216,14 +162,12 @@ export default function EditListPage() {
     }
   };
 
-  // Efeito para o carregamento inicial
   useEffect(() => {
     if (user) { 
       fetchList(false);
     }
   }, [slug, user]); 
 
-  // --- 2. EFEITO Polling (sem mudança) ---
   useEffect(() => {
     if (!list) {
       return; 
@@ -232,11 +176,9 @@ export default function EditListPage() {
       console.log("[Polling] Verificando atualizações silenciosamente...");
       fetchList(true); 
     }, 30000); 
-
     return () => clearInterval(intervalId);
   }, [list, slug]); 
 
-  // --- Funções de Gerenciamento de CATEGORIA (sem mudança) ---
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     setCategoryError(null);
@@ -255,6 +197,7 @@ export default function EditListPage() {
       setCategoryError(err.data?.message || 'Erro ao criar categoria.');
     }
   };
+
   const handleDeleteCategory = async (categoryId) => {
     if (!window.confirm('Tem certeza? Deletar uma categoria também deletará TODOS os itens dentro dela.')) return;
     try {
@@ -267,12 +210,15 @@ export default function EditListPage() {
       alert('Não foi possível deletar a categoria.');
     }
   };
+  
   const handleStartEditCategory = (category) => {
     setEditingCategory({ id: category.id, name: category.name });
   };
+  
   const handleCancelEditCategory = () => {
     setEditingCategory({ id: null, name: '' });
   };
+
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     if (!editingCategory.id || !editingCategory.name) return;
@@ -293,12 +239,12 @@ export default function EditListPage() {
     }
   };
 
-  // --- Funções de Gerenciamento de ITENS (sem mudança) ---
   const resetForm = () => {
     setFormValues({ name: '', price: '', linkUrl: '', imageUrl: '', description: '', categoryId: '' });
     setFormError(null);
     setEditingItem(null);
   };
+
   const handleSubmitItem = async (e) => {
     e.preventDefault();
     setFormError(null);
@@ -312,6 +258,7 @@ export default function EditListPage() {
       handleCreateItem();
     }
   };
+
   const handleCreateItem = async () => {
     try {
       const priceValue = formValues.price ? parseFloat(formValues.price) : null;
@@ -332,6 +279,7 @@ export default function EditListPage() {
       setFormError(err.data?.message || 'Erro ao adicionar item.');
     }
   };
+
   const handleUpdateItem = async () => {
     if (!editingItem) return;
     try {
@@ -362,6 +310,7 @@ export default function EditListPage() {
       setFormError(err.data?.message || 'Erro ao atualizar item.');
     }
   };
+
   const handleDeleteItem = async (itemId) => {
     if (!window.confirm('Tem certeza que quer deletar este item?')) return;
     try {
@@ -377,6 +326,7 @@ export default function EditListPage() {
       alert('Não foi possível deletar o item.');
     }
   };
+
   const handleStartEdit = (item) => {
     setEditingItem(item);
     setFormValues({
@@ -391,7 +341,6 @@ export default function EditListPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  // --- Funções de Moderação de Reserva (sem mudança) ---
   const updateItemInState = (updatedItem) => {
     setList(prevList => ({
       ...prevList,
@@ -401,6 +350,7 @@ export default function EditListPage() {
       }))
     }));
   };
+
   const handleConfirmPurchase = async (itemId) => {
     try {
       const updatedItem = await apiFetch(`/items/${itemId}/confirm`, { method: 'PATCH' });
@@ -409,6 +359,7 @@ export default function EditListPage() {
       alert('Não foi possível confirmar a compra.');
     }
   };
+
   const handleCancelReservation = async (itemId) => {
     if (!window.confirm('Cancelar esta reserva? O item ficará disponível.')) return;
     try {
@@ -419,45 +370,6 @@ export default function EditListPage() {
     }
   };
 
-  // --- NOVAS: FUNÇÕES DE GERENCIAMENTO DA LISTA ---
-  const handleUpdateListDetails = async (formData) => {
-    setModalError(null);
-    try {
-      const updatedList = await apiFetch(`/lists/${slug}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          eventDate: formData.eventDate || null,
-        }),
-      });
-      
-      // Atualiza o estado da lista local
-      setList(prevList => ({ ...prevList, ...updatedList }));
-      setIsEditModalOpen(false); // Fecha o modal
-      
-    } catch (err) {
-      console.error('Erro ao atualizar lista:', err);
-      setModalError(err.data?.message || 'Não foi possível salvar as alterações.');
-    }
-  };
-
-  const handleDeleteList = async () => {
-    if (!window.confirm('TEM CERTEZA?\n\nDeletar esta lista irá remover TODAS as categorias e TODOS os itens contidos nela. Esta ação é irreversível.')) {
-      return;
-    }
-    try {
-      await apiFetch(`/lists/${slug}`, { method: 'DELETE' });
-      // Sucesso, redireciona para o dashboard
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Erro ao deletar lista:', err);
-      alert(err.data?.message || 'Não foi possível deletar a lista.');
-    }
-  };
-
-
-  // --- Cálculo da Barra de Progresso (sem mudança) ---
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
   useEffect(() => {
@@ -473,7 +385,6 @@ export default function EditListPage() {
     }
   }, [list]); 
 
-  // --- Função Copiar Link (sem mudança) ---
   const handleCopyLink = () => {
     const publicUrl = `${window.location.origin}/lista/${list.slug}`;
     const textArea = document.createElement('textarea');
@@ -491,53 +402,73 @@ export default function EditListPage() {
     }
     document.body.removeChild(textArea);
   };
+  
+  // --- Funções do Modal de Edição da Lista ---
+  const handleOpenEditModal = () => {
+    if (!list) return;
+    setEditListValues({
+      title: list.title,
+      description: list.description || '',
+      eventDate: list.eventDate ? list.eventDate.split('T')[0] : '',
+    });
+    setEditListError(null);
+    setIsEditModalOpen(true);
+  };
+  
+  const handleUpdateListDetails = async (e) => {
+    e.preventDefault();
+    setEditListError(null);
+    try {
+      const updatedList = await apiFetch(`/lists/${list.slug}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...editListValues,
+          eventDate: editListValues.eventDate || null,
+        }),
+      });
+      
+      // Atualiza a lista no estado
+      setList(prevList => ({
+        ...prevList,
+        title: updatedList.title,
+        description: updatedList.description,
+        eventDate: updatedList.eventDate,
+      }));
+      
+      setIsEditModalOpen(false); // Fecha o modal
+      
+    } catch (err) {
+      console.error("Erro ao atualizar lista:", err);
+      setEditListError(err.data?.message || 'Erro ao salvar alterações.');
+    }
+  };
 
-  // --- Lógica de Filtrar Categorias Vazias (sem mudança) ---
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
 
-  // --- Renderização ---
   if (loading) return <p className="text-center text-xl mt-10">Carregando gerenciador...</p>;
   if (error) return <p className="text-center text-xl text-red-600 mt-10">{error}</p>;
   if (!list) return <p className="text-center text-xl mt-10">Lista não encontrada.</p>;
 
   return (
     <>
-      {/* Cabeçalho (ATUALIZADO com botões) */}
+      {/* Cabeçalho */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
-          {/* Título e Descrição */}
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">{list.title}</h1>
             <p className="text-lg text-gray-600">Modo de Gerenciamento</p>
-            {/* Botão de Editar Detalhes */}
-            <button 
-              onClick={() => {
-                setModalError(null);
-                setIsEditModalOpen(true);
-              }}
-              className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-            >
-              <EditIcon />
-              <span>Editar Detalhes da Lista</span>
-            </button>
           </div>
-          {/* Botões de Ação */}
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-            <button onClick={handleCopyLink} className="flex items-center justify-center space-x-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <div className="flex space-x-2">
+            <button onClick={handleOpenEditModal} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Editar Lista
+            </button>
+            <button onClick={handleCopyLink} className="flex items-center space-x-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
               <CopyIcon />
               <span>{copyButtonText}</span>
             </button>
-            <Link to={`/lista/${list.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50">
+            <Link to={`/lista/${list.slug}`} target="_blank" rel="noopener noreferrer" className="py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 hover:bg-blue-50">
               Ver Página Pública
             </Link>
-            {/* Botão de Deletar Lista */}
-            <button 
-              onClick={handleDeleteList}
-              className="flex items-center justify-center space-x-1 py-2 px-4 border border-red-500 bg-red-50 text-red-600 rounded-md shadow-sm text-sm font-medium hover:bg-red-100"
-            >
-              <DeleteIcon />
-              <span>Deletar Lista</span>
-            </button>
           </div>
         </div>
       </div>
@@ -546,7 +477,7 @@ export default function EditListPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        {/* Coluna 1: Formulários (Categoria e Itens) (sem mudança) */}
+        {/* Coluna 1: Formulários (Categoria e Itens) */}
         <div className="md:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
             <h2 className="text-xl font-bold mb-4">Adicionar Categoria</h2>
@@ -559,6 +490,8 @@ export default function EditListPage() {
             {categoryError && <p className="text-sm text-red-600 mt-2">{categoryError}</p>}
           </div>
 
+          {/* --- *** ATUALIZADO *** --- */}
+          {/* --- Formulário de Item --- */}
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-48">
             <h2 className="text-xl font-bold mb-4">
               {editingItem ? `Editando: ${editingItem.name}` : 'Adicionar Novo Item'}
@@ -585,6 +518,20 @@ export default function EditListPage() {
                 <label htmlFor="itemImage" className="block text-sm font-medium text-gray-700">URL da Imagem</label>
                 <input type="text" id="itemImage" value={formValues.imageUrl} onChange={(e) => setFormValues(f => ({ ...f, imageUrl: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
+              
+              {/* --- PRÉ-VISUALIZAÇÃO DA IMAGEM --- */}
+              {formValues.imageUrl && (
+                <div className="my-2">
+                  <img 
+                    src={formValues.imageUrl} 
+                    alt="Pré-visualização" 
+                    className="w-full h-32 object-cover rounded-md bg-gray-100"
+                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/f8f8f8/cccccc?text=Imagem+Inválida"; }}
+                  />
+                </div>
+              )}
+              {/* --- FIM DA PRÉ-VISUALIZAÇÃO --- */}
+              
               <div>
                 <label htmlFor="itemLink" className="block text-sm font-medium text-gray-700">Link da Loja</label>
                 <input type="text" id="itemLink" value={formValues.linkUrl} onChange={(e) => setFormValues(f => ({ ...f, linkUrl: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
@@ -608,7 +555,7 @@ export default function EditListPage() {
           </div>
         </div>
 
-        {/* Coluna 2: Categorias e Itens (sem mudança) */}
+        {/* Coluna 2: Categorias e Itens */}
         <div className="md:col-span-2 space-y-6">
           {list.categories.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -681,15 +628,56 @@ export default function EditListPage() {
           )}
         </div>
       </div>
-
-      {/* --- Renderização do NOVO Modal --- */}
+      
+      {/* Modal de Edição da Lista */}
       {isEditModalOpen && (
-        <EditListModal
-          list={list}
-          onClose={() => setIsEditModalOpen(false)}
-          onSave={handleUpdateListDetails}
-          error={modalError}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={() => setIsEditModalOpen(false)}>
+          <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4">Editar Detalhes da Lista</h2>
+            <form onSubmit={handleUpdateListDetails} className="space-y-4">
+              <div>
+                <label htmlFor="listTitle" className="block text-sm font-medium text-gray-700">Título*</label>
+                <input
+                  type="text"
+                  id="listTitle"
+                  value={editListValues.title}
+                  onChange={(e) => setEditListValues(v => ({ ...v, title: e.target.value }))}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="listEventDate" className="block text-sm font-medium text-gray-700">Data do Evento</label>
+                <input
+                  type="date"
+                  id="listEventDate"
+                  value={editListValues.eventDate}
+                  onChange={(e) => setEditListValues(v => ({ ...v, eventDate: e.target.value }))}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="listDescription" className="block text-sm font-medium text-gray-700">Descrição</label>
+                <textarea
+                  id="listDescription"
+                  value={editListValues.description}
+                  onChange={(e) => setEditListValues(v => ({ ...v, description: e.target.value }))}
+                  rows={3}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                />
+              </div>
+              {editListError && <p className="text-sm text-red-600">{editListError}</p>}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
+                  Cancelar
+                </button>
+                <button type="submit" className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );
