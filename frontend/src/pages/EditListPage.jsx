@@ -3,8 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
+// 1. Importar a biblioteca de compressão
+import imageCompression from 'browser-image-compression';
 
-// --- Componentes de Ícone (sem mudança) ---
+// --- Componentes de Ícone ---
 function EditIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -26,9 +28,17 @@ function CopyIcon() {
     </svg>
   );
 }
+// --- Ícone de Upload ---
+function UploadIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+    </svg>
+  );
+}
 // --- Fim dos Ícones ---
 
-// --- *** ATUALIZADO *** ---
+
 // --- Componente de Card de Item (Admin) ---
 function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
   const { status, purchaserName } = item;
@@ -57,21 +67,22 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
       break;
   }
   
-  // Placeholder da imagem
   const placeholderText = encodeURIComponent(item.name);
   const placeholderImg = `https://placehold.co/100x100/eeeeee/cccccc?text=${placeholderText}`;
-  const itemImg = item.imageUrl || placeholderImg;
-
+  
+  // 3. Correção Imagem Cortada: Usa 'object-contain'
   return (
     <div className={`border rounded-lg shadow-sm overflow-hidden ${bgColor}`}>
       <div className="p-4 flex space-x-4">
         {/* Imagem do Item */}
-        <img 
-          src={itemImg} 
-          alt={item.name} 
-          className="w-16 h-16 object-cover rounded-md flex-shrink-0 bg-gray-200"
-          onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
-        />
+        <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-md flex items-center justify-center">
+          <img 
+            src={item.imageUrl || placeholderImg} 
+            alt={item.name} 
+            className="w-full h-full object-contain rounded-md" // <-- MUDANÇA AQUI
+            onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }}
+          />
+        </div>
         
         {/* Detalhes do Item */}
         <div className="flex-grow">
@@ -102,7 +113,7 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit }) {
 }
 
 
-// --- Página Principal de Edição (sem mudanças no JS, só no JSX) ---
+// --- Página Principal de Edição ---
 export default function EditListPage() {
   const { slug } = useParams();
   const { user } = useAuth();
@@ -123,55 +134,45 @@ export default function EditListPage() {
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
   
-  // --- Estados do Modal de Edição da Lista ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editListValues, setEditListValues] = useState({ title: '', description: '', eventDate: '' });
   const [editListError, setEditListError] = useState(null);
+  
+  // --- Estados para Upload de Imagem ---
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-
+  // --- Funções Principais (fetch, etc) ---
   const fetchList = async (isSilent = false) => {
     try {
-      if (!isSilent) {
-        setLoading(true); 
-      }
+      if (!isSilent) setLoading(true); 
       const data = await apiFetch(`/lists/${slug}`); 
-      
       if (!user || data.user.id !== user.id) {
          setError('Acesso negado. Esta lista não é sua.');
          if (!isSilent) setLoading(false);
          return;
       }
-      
       setList(data);
-      // Prepara os valores para o modal de edição
       setEditListValues({
         title: data.title,
         description: data.description || '',
-        eventDate: data.eventDate ? data.eventDate.split('T')[0] : '', // Formata YYYY-MM-DD
+        eventDate: data.eventDate ? data.eventDate.split('T')[0] : '',
       });
       setError(null);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
-      if (!isSilent || !list) {
-        setError(err.message || 'Erro ao carregar a lista.');
-      }
+      if (!isSilent || !list) setError(err.message || 'Erro ao carregar a lista.');
     } finally {
-      if (!isSilent) {
-        setLoading(false);
-      }
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user) { 
-      fetchList(false);
-    }
+    if (user) fetchList(false);
   }, [slug, user]); 
 
   useEffect(() => {
-    if (!list) {
-      return; 
-    }
+    if (!list) return; 
     const intervalId = setInterval(() => {
       console.log("[Polling] Verificando atualizações silenciosamente...");
       fetchList(true); 
@@ -179,10 +180,22 @@ export default function EditListPage() {
     return () => clearInterval(intervalId);
   }, [list, slug]); 
 
+  // --- Funções de Categoria ---
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     setCategoryError(null);
     if (!newCategoryName) return;
+    
+    // 2. Correção Categoria Duplicada
+    const nameExists = list.categories.some(
+      c => c.name.toLowerCase() === newCategoryName.toLowerCase()
+    );
+    if (nameExists) {
+      setCategoryError('Esta categoria já existe na sua lista.');
+      return;
+    }
+    // Fim da correção
+
     try {
       const newCategory = await apiFetch('/categories', {
         method: 'POST',
@@ -211,17 +224,23 @@ export default function EditListPage() {
     }
   };
   
-  const handleStartEditCategory = (category) => {
-    setEditingCategory({ id: category.id, name: category.name });
-  };
-  
-  const handleCancelEditCategory = () => {
-    setEditingCategory({ id: null, name: '' });
-  };
+  const handleStartEditCategory = (category) => setEditingCategory({ id: category.id, name: category.name });
+  const handleCancelEditCategory = () => setEditingCategory({ id: null, name: '' });
 
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     if (!editingCategory.id || !editingCategory.name) return;
+    
+    // 2. Correção Categoria Duplicada (na edição)
+    const nameExists = list.categories.some(
+      c => c.name.toLowerCase() === editingCategory.name.toLowerCase() && c.id !== editingCategory.id
+    );
+    if (nameExists) {
+      alert('Esta categoria já existe na sua lista.');
+      return;
+    }
+    // Fim da correção
+    
     try {
       const updatedCategory = await apiFetch(`/categories/${editingCategory.id}`, {
         method: 'PUT',
@@ -239,10 +258,12 @@ export default function EditListPage() {
     }
   };
 
+  // --- Funções de Item ---
   const resetForm = () => {
     setFormValues({ name: '', price: '', linkUrl: '', imageUrl: '', description: '', categoryId: '' });
     setFormError(null);
     setEditingItem(null);
+    setIsUploading(false); // Reseta o estado de upload
   };
 
   const handleSubmitItem = async (e) => {
@@ -341,6 +362,7 @@ export default function EditListPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
+  // --- Funções de Moderação (sem mudança) ---
   const updateItemInState = (updatedItem) => {
     setList(prevList => ({
       ...prevList,
@@ -350,7 +372,6 @@ export default function EditListPage() {
       }))
     }));
   };
-
   const handleConfirmPurchase = async (itemId) => {
     try {
       const updatedItem = await apiFetch(`/items/${itemId}/confirm`, { method: 'PATCH' });
@@ -359,7 +380,6 @@ export default function EditListPage() {
       alert('Não foi possível confirmar a compra.');
     }
   };
-
   const handleCancelReservation = async (itemId) => {
     if (!window.confirm('Cancelar esta reserva? O item ficará disponível.')) return;
     try {
@@ -369,7 +389,8 @@ export default function EditListPage() {
       alert('Não foi possível cancelar a reserva.');
     }
   };
-
+  
+  // --- Funções de UI (Progresso, Copiar Link) ---
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
   useEffect(() => {
@@ -385,10 +406,17 @@ export default function EditListPage() {
     }
   }, [list]); 
 
+  // 4. Correção "Copiar Link"
   const handleCopyLink = () => {
     const publicUrl = `${window.location.origin}/lista/${list.slug}`;
     const textArea = document.createElement('textarea');
     textArea.value = publicUrl;
+    
+    // --- Estilos para prevenir o pulo da tela ---
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
@@ -403,7 +431,7 @@ export default function EditListPage() {
     document.body.removeChild(textArea);
   };
   
-  // --- Funções do Modal de Edição da Lista ---
+  // --- Funções do Modal de Edição da Lista (sem mudança) ---
   const handleOpenEditModal = () => {
     if (!list) return;
     setEditListValues({
@@ -414,7 +442,6 @@ export default function EditListPage() {
     setEditListError(null);
     setIsEditModalOpen(true);
   };
-  
   const handleUpdateListDetails = async (e) => {
     e.preventDefault();
     setEditListError(null);
@@ -426,23 +453,89 @@ export default function EditListPage() {
           eventDate: editListValues.eventDate || null,
         }),
       });
-      
-      // Atualiza a lista no estado
       setList(prevList => ({
         ...prevList,
         title: updatedList.title,
         description: updatedList.description,
         eventDate: updatedList.eventDate,
       }));
-      
-      setIsEditModalOpen(false); // Fecha o modal
-      
+      setIsEditModalOpen(false); 
     } catch (err) {
       console.error("Erro ao atualizar lista:", err);
       setEditListError(err.data?.message || 'Erro ao salvar alterações.');
     }
   };
 
+  // --- 1. Funções de Upload de Imagem ---
+  const handleImageFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFormError("Arquivo inválido. Por favor, envie uma imagem.");
+      return;
+    }
+    
+    setIsUploading(true);
+    setFormError(null);
+    setFormValues(f => ({ ...f, imageUrl: '' })); // Limpa URL antiga
+
+    try {
+      // Opções de compressão
+      const options = {
+        maxSizeMB: 1,          // Tamanho máximo (1MB)
+        maxWidthOrHeight: 1024, // Redimensiona para 1024px
+        useWebWorker: true,
+      };
+      
+      console.log('Comprimindo imagem...');
+      const compressedFile = await imageCompression(file, options);
+      
+      // Converte para Base64 (data:URL)
+      const reader = new FileReader();
+      reader.readAsDataURL(compressedFile);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        setFormValues(f => ({ ...f, imageUrl: base64data }));
+        setIsUploading(false);
+      };
+      reader.onerror = (error) => {
+        console.error("Erro ao ler arquivo:", error);
+        setFormError("Erro ao processar a imagem.");
+        setIsUploading(false);
+      };
+
+    } catch (error) {
+      console.error("Erro ao comprimir imagem:", error);
+      setFormError("Não foi possível comprimir a imagem.");
+      setIsUploading(false);
+    }
+  };
+  
+  // Handlers do Drag-and-Drop
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleImageFile(file);
+    }
+  };
+  // Handler do input de arquivo
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleImageFile(file);
+    }
+  };
+  
+  // --- Renderização ---
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
 
   if (loading) return <p className="text-center text-xl mt-10">Carregando gerenciador...</p>;
@@ -451,7 +544,7 @@ export default function EditListPage() {
 
   return (
     <>
-      {/* Cabeçalho */}
+      {/* Cabeçalho (sem mudança) */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
@@ -479,6 +572,7 @@ export default function EditListPage() {
         
         {/* Coluna 1: Formulários (Categoria e Itens) */}
         <div className="md:col-span-1 space-y-6">
+          {/* Formulário de Categoria (com erro) */}
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
             <h2 className="text-xl font-bold mb-4">Adicionar Categoria</h2>
             <form onSubmit={handleCreateCategory} className="flex space-x-2">
@@ -490,13 +584,13 @@ export default function EditListPage() {
             {categoryError && <p className="text-sm text-red-600 mt-2">{categoryError}</p>}
           </div>
 
-          {/* --- *** ATUALIZADO *** --- */}
-          {/* --- Formulário de Item --- */}
+          {/* Formulário de Item (ATUALIZADO) */}
           <div className="bg-white p-6 rounded-lg shadow-md sticky top-48">
             <h2 className="text-xl font-bold mb-4">
               {editingItem ? `Editando: ${editingItem.name}` : 'Adicionar Novo Item'}
             </h2>
             <form onSubmit={handleSubmitItem} className="space-y-4">
+              {/* Campos do formulário (Categoria, Nome, Preço) */}
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoria*</label>
                 <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
@@ -514,24 +608,76 @@ export default function EditListPage() {
                 <label htmlFor="itemPrice" className="block text-sm font-medium text-gray-700">Preço (Ex: 150.00)</label>
                 <input type="number" step="0.01" id="itemPrice" value={formValues.price} onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
-              <div>
-                <label htmlFor="itemImage" className="block text-sm font-medium text-gray-700">URL da Imagem</label>
-                <input type="text" id="itemImage" value={formValues.imageUrl} onChange={(e) => setFormValues(f => ({ ...f, imageUrl: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
-              </div>
               
-              {/* --- PRÉ-VISUALIZAÇÃO DA IMAGEM --- */}
-              {formValues.imageUrl && (
-                <div className="my-2">
-                  <img 
-                    src={formValues.imageUrl} 
-                    alt="Pré-visualização" 
-                    className="w-full h-32 object-cover rounded-md bg-gray-100"
-                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/f8f8f8/cccccc?text=Imagem+Inválida"; }}
+              {/* --- 1. Upload de Imagem --- */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Imagem do Item</label>
+                {/* Drag-and-Drop Area */}
+                <input 
+                  type="file" 
+                  id="fileUpload" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+                <label 
+                  htmlFor="fileUpload"
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`mt-1 flex justify-center items-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md cursor-pointer
+                    ${dragOver ? 'border-blue-500 bg-blue-50' : ''}
+                    ${isUploading ? 'bg-gray-100 cursor-wait' : ''}`}
+                >
+                  <div className="space-y-1 text-center">
+                    <UploadIcon className="mx-auto h-8 w-8 text-gray-400" />
+                    {isUploading ? (
+                      <p className="text-sm text-gray-600">Processando imagem...</p>
+                    ) : (
+                      <div className="flex text-sm text-gray-600">
+                        <p>Arraste e solte ou <span className="text-blue-600 font-medium">clique aqui</span></p>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF (max 1MB)</p>
+                  </div>
+                </label>
+                
+                {/* Input de URL */}
+                <div className="mt-2">
+                  <label htmlFor="itemImage" className="block text-xs font-medium text-gray-600">Ou cole a URL da Imagem</label>
+                  <input 
+                    type="text" 
+                    id="itemImage" 
+                    value={formValues.imageUrl} 
+                    onChange={(e) => setFormValues(f => ({ ...f, imageUrl: e.target.value }))} 
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm"
+                    placeholder="https://..."
+                    disabled={isUploading}
                   />
                 </div>
-              )}
-              {/* --- FIM DA PRÉ-VISUALIZAÇÃO --- */}
+              </div>
               
+              {/* Pré-visualização da Imagem */}
+              {(formValues.imageUrl || isUploading) && (
+                <div className="my-2">
+                  <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
+                    {isUploading ? (
+                      <p className="text-gray-500">Carregando...</p>
+                    ) : (
+                      <img 
+                        src={formValues.imageUrl} 
+                        alt="Pré-visualização" 
+                        // 3. Correção Imagem Cortada
+                        className="w-full h-full object-contain rounded-md" // <-- MUDANÇA AQUI
+                        onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/600x400/f8f8f8/cccccc?text=Imagem+Inválida"; }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* --- Fim do Upload de Imagem --- */}
+              
+              {/* Campos do formulário (Link, Descrição) */}
               <div>
                 <label htmlFor="itemLink" className="block text-sm font-medium text-gray-700">Link da Loja</label>
                 <input type="text" id="itemLink" value={formValues.linkUrl} onChange={(e) => setFormValues(f => ({ ...f, linkUrl: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
@@ -540,10 +686,18 @@ export default function EditListPage() {
                 <label htmlFor="itemDesc" className="block text-sm font-medium text-gray-700">Descrição</label>
                 <textarea id="itemDesc" value={formValues.description} onChange={(e) => setFormValues(f => ({ ...f, description: e.target.value }))} rows={2} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
+              
               {formError && <p className="text-sm text-red-600">{formError}</p>}
+              
               <div className="space-y-2">
-                <button type="submit" className={`w-full py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white ${editingItem ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                  {editingItem ? 'Salvar Alterações' : 'Adicionar Item'}
+                <button type
+                  ="submit" 
+                  disabled={isUploading}
+                  className={`w-full py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white 
+                    ${editingItem ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
+                    ${isUploading ? 'opacity-50 cursor-wait' : ''}`}
+                >
+                  {isUploading ? 'Aguarde...' : (editingItem ? 'Salvar Alterações' : 'Adicionar Item')}
                 </button>
                 {editingItem && (
                   <button type="button" onClick={resetForm} className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -555,7 +709,7 @@ export default function EditListPage() {
           </div>
         </div>
 
-        {/* Coluna 2: Categorias e Itens */}
+        {/* Coluna 2: Categorias e Itens (sem mudança) */}
         <div className="md:col-span-2 space-y-6">
           {list.categories.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -629,7 +783,7 @@ export default function EditListPage() {
         </div>
       </div>
       
-      {/* Modal de Edição da Lista */}
+      {/* Modal de Edição da Lista (sem mudança) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={() => setIsEditModalOpen(false)}>
           <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>

@@ -59,8 +59,7 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
   );
 }
 
-// --- *** ATUALIZADO *** ---
-// --- Componente de Card de Item ---
+// --- Componente de Card de Item (ATUALIZADO) ---
 function ItemCard({ item, onReserveClick }) {
   const { status } = item;
   let buttonContent;
@@ -86,20 +85,21 @@ function ItemCard({ item, onReserveClick }) {
       isDisabled = false;
   }
 
-  // --- PLACEHOLDER MELHORADO ---
   const placeholderText = encodeURIComponent(item.name);
   const placeholderImg = `https://placehold.co/600x400/eeeeee/cccccc?text=${placeholderText}`;
   const itemImg = item.imageUrl || placeholderImg;
 
   return (
     <div className={`border rounded-lg shadow-md overflow-hidden flex flex-col ${bgColor} ${opacity}`}>
-      <img 
-        src={itemImg} 
-        alt={item.name} 
-        className="w-full h-48 object-cover bg-gray-200" 
-        // --- OnError MELHORADO ---
-        onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }} 
-      />
+      {/* 3. Correção Imagem Cortada */}
+      <div className="w-full h-48 bg-gray-100 rounded-t-lg flex items-center justify-center">
+        <img 
+          src={itemImg} 
+          alt={item.name} 
+          className="w-full h-full object-contain" // <-- MUDANÇA AQUI
+          onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }} 
+        />
+      </div>
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
         {item.price > 0 && (
