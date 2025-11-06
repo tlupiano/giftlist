@@ -20,7 +20,7 @@ model User {
   lists     GiftList[]
 }
 
-// ---- MODELO DA LISTA (Atualizado) ----
+// ---- MODELO DA LISTA (Sem alteração) ----
 model GiftList {
   id          String    @id @default(uuid())
   title       String
@@ -34,14 +34,11 @@ model GiftList {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // --- MUDANÇA AQUI ---
-  // Uma lista não tem mais "itens" diretos.
-  // Uma lista agora tem VÁRIAS "categorias"
+  // Relacionamento: Uma lista tem VÁRIAS "categorias"
   categories Category[]
 }
 
-// ---- NOVO MODELO: CATEGORIA ----
-// (Ex: "Cozinha", "Quarto", "Banheiro")
+// ---- MODELO CATEGORIA (Sem alteração) ----
 model Category {
   id        String   @id @default(uuid())
   name      String   // Nome da categoria
@@ -56,7 +53,7 @@ model Category {
   items Item[]
 }
 
-// ---- MODELO DO ITEM (Atualizado) ----
+// ---- MODELO DO ITEM (Sem alteração) ----
 model Item {
   id          String    @id @default(uuid())
   name        String
@@ -71,9 +68,7 @@ model Item {
   purchaserName  String?
   purchaserEmail String?
 
-  // --- MUDANÇA AQUI ---
-  // Um item não pertence mais a uma "lista"
-  // Um item agora pertence a UMA "categoria"
+  // Relacionamento: Um item pertence a UMA "categoria"
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
@@ -83,4 +78,49 @@ enum ItemStatus {
   AVAILABLE
   RESERVED
   PURCHASED
+}
+
+
+// --- NOVOS MODELOS PARA TEMPLATES ---
+
+// Modelo principal do Template (Ex: "Chá de Bebê")
+model ListTemplate {
+  id          String   @id @default(uuid())
+  name        String   @unique // "Chá de Bebê", "Lista de Casamento"
+  description String?
+  icon        String?  // (Opcional) Nome de um ícone (ex: 'baby', 'ring')
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamento: Um template tem VÁRIAS categorias
+  categories TemplateCategory[]
+}
+
+// Modelo das categorias do Template (Ex: "Quarto", "Banho")
+model TemplateCategory {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  // Relacionamento: Pertence a UM template
+  templateId String
+  template   ListTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Relacionamento: Tem VÁRIOS itens
+  items TemplateItem[]
+}
+
+// Modelo dos itens do Template (Ex: "Berço", "Fraldas")
+model TemplateItem {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float?   // Preço sugerido
+  imageUrl    String?
+  linkUrl     String?
+  createdAt   DateTime @default(now())
+
+  // Relacionamento: Pertence a UMA categoria de template
+  categoryId String
+  category   TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }

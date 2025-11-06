@@ -36,6 +36,95 @@ export const createGiftList = async (req, res) => {
   }
 };
 
+// --- NOVO: Criar Lista a partir de Template (Protegido) ---
+export const createListFromTemplate = async (req, res) => {
+  // Recebemos os dados do formulário e o ID do template
+  const { title, description, eventDate, slug, templateId } = req.body;
+  const userId = req.userId;
+
+  if (!title || !slug || !templateId) {
+    return res.status(400).json({ message: 'Título, Slug (URL) e ID do Modelo são obrigatórios.' });
+  }
+
+  try {
+    // 1. Verificar se o slug já está em uso
+    const existingSlug = await prisma.giftList.findUnique({
+      where: { slug },
+    });
+    if (existingSlug) {
+      return res.status(409).json({ message: 'Esta URL (slug) já está em uso. Escolha outra.' });
+    }
+
+    // 2. Buscar o template completo
+    const template = await prisma.listTemplate.findUnique({
+      where: { id: templateId },
+      include: {
+        categories: {
+          include: {
+            items: true,
+          },
+        },
+      },
+    });
+    if (!template) {
+      return res.status(404).json({ message: 'Modelo de lista não encontrado.' });
+    }
+
+    // 3. Usar uma transação para criar a lista, categorias e itens
+    const newList = await prisma.$transaction(async (tx) => {
+      // 3a. Criar a GiftList principal
+      const createdList = await tx.giftList.create({
+        data: {
+          title,
+          description: description || template.description, // Usa a descrição do template se nenhuma for fornecida
+          eventDate: eventDate ? new Date(eventDate) : null,
+          slug,
+          userId,
+        },
+      });
+
+      // 3b. Iterar sobre as categorias do template
+      for (const templateCategory of template.categories) {
+        // Criar a Categoria real (nova)
+        const createdCategory = await tx.category.create({
+          data: {
+            name: templateCategory.name,
+            listId: createdList.id,
+          },
+        });
+
+        // 3c. Preparar os itens (baseados no template) para criação
+        const itemsToCreate = templateCategory.items.map(templateItem => ({
+          name: templateItem.name,
+          description: templateItem.description,
+          price: templateItem.price,
+          imageUrl: templateItem.imageUrl,
+          linkUrl: templateItem.linkUrl,
+          categoryId: createdCategory.id, // Liga o item à nova categoria
+          status: 'AVAILABLE', // Todos começam como disponíveis
+        }));
+
+        // Criar todos os itens desta categoria de uma vez (mais rápido)
+        if (itemsToCreate.length > 0) {
+          await tx.item.createMany({
+            data: itemsToCreate,
+          });
+        }
+      }
+
+      // O retorno da transação é a lista criada
+      return createdList;
+    });
+
+    // 4. Retornar a nova lista criada
+    res.status(201).json(newList);
+
+  } catch (error) {
+    console.error('[GIFT_LIST_CREATE_FROM_TEMPLATE] Erro:', error);
+    res.status(500).json({ message: 'Erro interno ao criar a lista a partir do modelo.' });
+  }
+};
+
 // --- Buscar todas as listas do usuário logado (Protegido) ---
 export const getMyGiftLists = async (req, res) => {
   const userId = req.userId; 
@@ -101,33 +190,31 @@ export const getListBySlug = async (req, res) => {
   }
 };
 
-// --- NOVO: Atualizar uma Lista (Protegido - Dono) ---
+// --- Atualizar uma Lista (Protegido - Dono) ---
 export const updateGiftList = async (req, res) => {
   const { slug } = req.params;
   const { title, description, eventDate } = req.body;
   const userId = req.userId;
 
-  // Slug não pode ser alterado, mas título é obrigatório
   if (!title) {
     return res.status(400).json({ message: 'O título é obrigatório.' });
   }
 
   try {
-    // 1. Encontra a lista para verificar o dono
+    // 1. Garante que o usuário é o dono ANTES de atualizar
     const list = await prisma.giftList.findUnique({
-      where: { slug },
+      where: { slug: slug },
     });
-
     if (!list) {
       return res.status(404).json({ message: 'Lista não encontrada.' });
     }
     if (list.userId !== userId) {
-      return res.status(403).json({ message: 'Acesso negado. Esta lista não é sua.' });
+      return res.status(403).json({ message: 'Acesso negado.' });
     }
 
     // 2. Atualiza a lista
     const updatedList = await prisma.giftList.update({
-      where: { slug },
+      where: { slug: slug },
       data: {
         title,
         description,
@@ -142,31 +229,32 @@ export const updateGiftList = async (req, res) => {
   }
 };
 
-// --- NOVO: Deletar uma Lista (Protegido - Dono) ---
+// --- FUNÇÃO QUE FALTAVA ---
+// --- Deletar uma Lista (Protegido - Dono) ---
 export const deleteGiftList = async (req, res) => {
   const { slug } = req.params;
   const userId = req.userId;
 
   try {
-    // 1. Encontra a lista para verificar o dono
+    // 1. Garante que o usuário é o dono ANTES de deletar
     const list = await prisma.giftList.findUnique({
-      where: { slug },
+      where: { slug: slug },
     });
-
     if (!list) {
       return res.status(404).json({ message: 'Lista não encontrada.' });
     }
     if (list.userId !== userId) {
-      return res.status(403).json({ message: 'Acesso negado. Esta lista não é sua.' });
+      return res.status(403).json({ message: 'Acesso negado.' });
     }
 
     // 2. Deleta a lista
-    // O Prisma (onDelete: Cascade) cuidará de deletar categorias e itens
+    // O 'onDelete: Cascade' no schema.prisma cuidará de deletar
+    // as categorias e itens relacionados.
     await prisma.giftList.delete({
-      where: { slug },
+      where: { slug: slug },
     });
 
-    res.status(204).send(); // OK, sem conteúdo
+    res.status(204).send(); // OK, Sem conteúdo
   } catch (error) {
     console.error('[GIFT_LIST_DELETE] Erro:', error);
     res.status(500).json({ message: 'Erro interno ao deletar a lista.' });

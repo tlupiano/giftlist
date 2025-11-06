@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom'; 
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api.js';
+import CreateListModal from '../components/CreateListModal'; // <-- 1. Importar o novo modal
 
-// --- Ícone de Lixeira ---
+// --- Ícones ---
 function DeleteIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -11,23 +12,52 @@ function DeleteIcon() {
     </svg>
   );
 }
+// Ícones dos templates (baseados no seed.js)
+function IconBaby() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A1.875 1.875 0 0 1 18 22.5H6A1.875 1.875 0 0 1 4.501 20.118Z" />
+    </svg>
+  );
+}
+function IconRing() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+    </svg>
+  );
+}
+function IconPlus() {
+   return (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+  );
+}
+// Mapeamento de ícones
+const iconMap = {
+  baby: <IconBaby />,
+  ring: <IconRing />,
+};
+
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  
-  // Estados para o formulário
-  const [title, setTitle] = useState('');
-  const [slug, setSlug] = useState('');
-  const [description, setDescription] = useState('');
-  const [eventDate, setEventDate] = useState(''); 
 
-  // Estados para a lista
+  // Estados das listas (sem mudança)
   const [myLists, setMyLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [formError, setFormError] = useState(null);
 
-  // --- Efeito para buscar as listas ---
+  // --- NOVOS ESTADOS ---
+  // Estado para os templates
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  // Estado para controlar o modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null); // null = manual, ou objeto template
+
+  // --- Efeito para buscar as LISTAS do usuário ---
   useEffect(() => {
     const fetchLists = async () => {
       try {
@@ -42,56 +72,52 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-
-    if (user) { 
+    if (user) {
       fetchLists();
     }
-  }, [user]); 
+  }, [user]);
 
-  // --- Função para criar a lista ---
-  const handleCreateList = async (e) => {
-    e.preventDefault();
-    setFormError(null);
+  // --- NOVO Efeito para buscar os TEMPLATES ---
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoadingTemplates(true);
+        const data = await apiFetch('/templates'); // GET /api/templates
+        setTemplates(data);
+      } catch (err) {
+        console.error("Erro ao buscar templates:", err);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+    fetchTemplates();
+  }, []); // Roda só uma vez
 
-    if (!/^[a-z0-9-]+$/.test(slug)) {
-      setFormError('URL (Slug) deve conter apenas letras minúsculas, números e hífens.');
-      return;
-    }
-
-    try {
-      const newList = await apiFetch('/lists', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          title, 
-          slug, 
-          description,
-          eventDate: eventDate || null 
-        }),
-      });
-
-      setMyLists([newList, ...myLists]);
-      setTitle('');
-      setSlug('');
-      setDescription('');
-      setEventDate(''); 
-      
-    } catch (err) {
-      console.error(err);
-      setFormError(err.data.message || 'Erro ao criar a lista.');
-    }
+  // --- Funções de Abertura do Modal ---
+  const handleOpenManualModal = () => {
+    setSelectedTemplate(null); // 'null' significa modo manual
+    setModalOpen(true);
   };
 
-  // --- NOVO: Função para DELETAR a lista ---
+  const handleOpenTemplateModal = (template) => {
+    setSelectedTemplate(template);
+    setModalOpen(true);
+  };
+
+  // --- Função callback para quando o modal cria a lista ---
+  const handleListCreated = (newList) => {
+    setMyLists([newList, ...myLists]);
+  };
+  
+  // --- Função para DELETAR a lista (sem mudança) ---
   const handleDeleteList = async (listSlug) => {
     if (!window.confirm('Tem certeza que quer deletar esta lista? Esta ação não pode ser desfeita.')) {
       return;
     }
-
     try {
       await apiFetch(`/lists/${listSlug}`, {
         method: 'DELETE',
       });
-      // Atualiza o estado removendo a lista deletada
       setMyLists(myLists.filter(list => list.slug !== listSlug));
     } catch (err) {
       console.error(err);
@@ -99,94 +125,53 @@ export default function DashboardPage() {
     }
   };
   
-  // Atualiza o slug automaticamente baseado no título
-  const handleTitleChange = (e) => {
-    const newTitle = e.target.value;
-    setTitle(newTitle);
-    const newSlug = newTitle
-      .toLowerCase()
-      .normalize("NFD") // Remove acentos
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
-      .trim()
-      .replace(/\s+/g, '-'); // Troca espaços por hífens
-    setSlug(newSlug);
-  };
-
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
       
-      {/* Coluna 1: Formulário de Criação (sem mudanças) */}
+      {/* Coluna 1: Templates de Criação (ATUALIZADO) */}
       <div className="md:col-span-1">
         <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
           <h2 className="text-2xl font-bold mb-4">Criar Nova Lista</h2>
-          <form onSubmit={handleCreateList} className="space-y-4">
-            {/* ... (campos do formulário) ... */}
-             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                Título da Lista*
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={handleTitleChange}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
-                URL da Lista (Slug)*
-              </label>
-              <input
-                type="text"
-                id="slug"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">Ex: cha-da-ana-e-bruno</p>
-            </div>
-            <div>
-              <label htmlFor="eventDate" className="block text-sm font-medium text-gray-700">
-                Data do Evento (Opcional)
-              </label>
-              <input
-                type="date"
-                id="eventDate"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                Descrição (Opcional)
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            {formError && (
-              <p className="text-sm text-red-600">{formError}</p>
-            )}
+          <p className="text-gray-600 mb-6">Comece usando um de nossos modelos populares ou crie uma lista do zero.</p>
+          
+          <div className="space-y-4">
+            {/* Botões dos Templates */}
+            {loadingTemplates && <p>Carregando modelos...</p>}
+            
+            {templates.map(template => (
+              <button
+                key={template.id}
+                onClick={() => handleOpenTemplateModal(template)}
+                className="w-full flex items-center space-x-4 p-4 border border-gray-300 rounded-lg hover:bg-gray-50 hover:shadow-md transition-all"
+              >
+                <span className="text-blue-600">
+                  {iconMap[template.icon] || <IconPlus />}
+                </span>
+                <div>
+                  <span className="font-semibold text-lg text-gray-800">{template.name}</span>
+                  <p className="text-sm text-gray-500 text-left">{template.description}</p>
+                </div>
+              </button>
+            ))}
+
+            {/* Botão de Lista em Branco */}
             <button
-              type="submit"
-              className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={handleOpenManualModal}
+              className="w-full flex items-center space-x-4 p-4 border border-dashed border-gray-400 rounded-lg hover:bg-gray-50 hover:shadow-md transition-all"
             >
-              Criar Lista
+              <span className="text-gray-600">
+                <IconPlus />
+              </span>
+              <div>
+                <span className="font-semibold text-lg text-gray-800">Lista em Branco</span>
+                <p className="text-sm text-gray-500 text-left">Comece do zero e adicione suas próprias categorias.</p>
+              </div>
             </button>
-          </form>
+          </div>
         </div>
       </div>
 
-      {/* Coluna 2: Listas Existentes (ATUALIZADO) */}
+      {/* Coluna 2: Listas Existentes (sem mudança) */}
       <div className="md:col-span-2">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h1 className="text-3xl font-bold mb-4">Minhas Listas</h1>
@@ -202,15 +187,11 @@ export default function DashboardPage() {
           {!loading && myLists.length > 0 && (
             <div className="space-y-4">
               {myLists.map((list) => (
-                // Card da Lista (UI Melhorada)
                 <div 
                   key={list.id} 
                   className="block border border-gray-200 p-4 rounded-lg hover:shadow-lg transition-shadow"
                 >
-                  {/* Layout responsivo: 'col' em 'xs', 'row' em 'sm' */}
                   <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
-                    
-                    {/* Informações da Lista */}
                     <div className="flex-grow">
                       <h3 className="text-xl font-semibold text-blue-700 hover:underline">
                         <Link to={`/dashboard/lista/${list.slug}`}>
@@ -226,11 +207,9 @@ export default function DashboardPage() {
                       <p className="text-gray-700 mt-2">{list.description || 'Nenhuma descrição.'}</p>
                     </div>
                     
-                    {/* Botões de Ação */}
                     <div className="flex space-x-2 flex-shrink-0 w-full sm:w-auto">
                       <Link 
                         to={`/dashboard/lista/${list.slug}`}
-                        // flex-grow para ocupar espaço em 'xs', sm:flex-grow-0 para normalizar
                         className="p-2 flex-grow sm:flex-grow-0 text-center text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                         title="Gerenciar Itens"
                       >
@@ -238,7 +217,7 @@ export default function DashboardPage() {
                       </Link>
                       <button
                         onClick={(e) => {
-                          e.stopPropagation(); // Impede o clique de ir para o Link
+                          e.stopPropagation(); 
                           handleDeleteList(list.slug);
                         }}
                         className="p-2 flex-shrink-0 text-red-600 bg-red-100 rounded-md hover:bg-red-200"
@@ -254,6 +233,18 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* --- Renderização Condicional do Modal --- */}
+      {modalOpen && (
+        <CreateListModal
+          // Se selectedTemplate existir, passa os dados dele
+          templateId={selectedTemplate?.id}
+          templateName={selectedTemplate?.name}
+          // Funções de controle
+          onClose={() => setModalOpen(false)}
+          onListCreated={handleListCreated}
+        />
+      )}
     </div>
   );
 }

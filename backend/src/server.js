@@ -5,7 +5,8 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import giftListRoutes from './routes/giftlist.routes.js';
 import itemRoutes from './routes/item.routes.js';
-import categoryRoutes from './routes/category.routes.js'; // <-- 1. IMPORTAR
+import categoryRoutes from './routes/category.routes.js';
+import templateRoutes from './routes/template.routes.js'; // <-- Rota de templates
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,8 +32,11 @@ app.use('/api/lists', giftListRoutes);
 // Rotas dos Itens
 app.use('/api/items', itemRoutes);
 
-// Rotas das Categorias (NOVAS)
-app.use('/api/categories', categoryRoutes); // <-- 2. USAR
+// Rotas das Categorias
+app.use('/api/categories', categoryRoutes);
+
+// Rotas dos Templates (NOVAS)
+app.use('/api/templates', templateRoutes); // <-- Usando a nova rota
 
 
 // --- Inicialização do Servidor ---
