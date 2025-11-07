@@ -407,28 +407,29 @@ export default function EditListPage() {
   }, [list]); 
 
   // 4. Correção "Copiar Link"
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const publicUrl = `${window.location.origin}/lista/${list.slug}`;
-    const textArea = document.createElement('textarea');
-    textArea.value = publicUrl;
     
-    // --- Estilos para prevenir o pulo da tela ---
-    textArea.style.position = 'fixed';
-    textArea.style.top = '-9999px';
-    textArea.style.left = '-9999px';
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
+    // Verifica se a API do Clipboard está disponível
+    if (!navigator.clipboard) {
+      // (Fallback para o método antigo, se necessário, mas é raro)
+      console.error('API de Clipboard não suportada.');
+      setCopyButtonText('Falhou!');
+      return;
+    }
+
     try {
-      document.execCommand('copy');
+      // 1. Usa a nova API para escrever o texto na área de transferência
+      await navigator.clipboard.writeText(publicUrl);
+      
+      // 2. Sucesso (não há salto de tela!)
       setCopyButtonText('Copiado!');
       setTimeout(() => setCopyButtonText('Copiar Link'), 2000);
+      
     } catch (err) {
       console.error('Falha ao copiar link: ', err);
       setCopyButtonText('Falhou!');
     }
-    document.body.removeChild(textArea);
   };
   
   // --- Funções do Modal de Edição da Lista (sem mudança) ---
