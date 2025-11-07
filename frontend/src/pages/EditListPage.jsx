@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
-// 1. Importar a biblioteca de compressão
 import imageCompression from 'browser-image-compression';
+// --- CORREÇÃO (Ponto 1) ---
+// Importar o novo modal de gerenciamento de categoria
+import CategoryManagerModal from '../components/CategoryManagerModal';
+// --- FIM DA CORREÇÃO ---
 
 // --- Componentes de Ícone ---
 function EditIcon() {
@@ -28,7 +31,6 @@ function CopyIcon() {
     </svg>
   );
 }
-// --- Ícone de Upload ---
 function UploadIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
@@ -128,8 +130,9 @@ export default function EditListPage() {
   });
   const [formError, setFormError] = useState(null);
 
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [categoryError, setCategoryError] = useState(null);
+  // --- CORREÇÃO (Ponto 1) ---
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  // --- FIM DA CORREÇÃO ---
   
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
@@ -138,9 +141,19 @@ export default function EditListPage() {
   const [editListValues, setEditListValues] = useState({ title: '', description: '', eventDate: '' });
   const [editListError, setEditListError] = useState(null);
   
-  // --- Estados para Upload de Imagem ---
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // --- CORREÇÃO (Ponto 4 e 5) ---
+  const [isEditingHighlight, setIsEditingHighlight] = useState(false);
+  const editBoxRef = useRef(null);
+  // --- FIM DA CORREÇÃO ---
+  
+  // --- CORREÇÃO (Ponto 2) ---
+  // Regex para validação de nomes (letras, números, acentos, espaço, hífen, apóstrofo)
+  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
+  // --- FIM DA CORREÇÃO ---
+
 
   // --- Funções Principais (fetch, etc) ---
   const fetchList = async (isSilent = false) => {
@@ -180,50 +193,14 @@ export default function EditListPage() {
     return () => clearInterval(intervalId);
   }, [list, slug]); 
 
-  // --- Funções de Categoria ---
-  const handleCreateCategory = async (e) => {
-    e.preventDefault();
-    setCategoryError(null);
-    if (!newCategoryName) return;
-    
-    // 2. Correção Categoria Duplicada
-    const nameExists = list.categories.some(
-      c => c.name.toLowerCase() === newCategoryName.toLowerCase()
-    );
-    if (nameExists) {
-      setCategoryError('Esta categoria já existe na sua lista.');
-      return;
-    }
-    // Fim da correção
-
-    try {
-      const newCategory = await apiFetch('/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name: newCategoryName, listId: list.id }),
-      });
-      setList(prevList => ({
-        ...prevList,
-        categories: [...prevList.categories, { ...newCategory, items: [] }] 
-      }));
-      setNewCategoryName('');
-    } catch (err) {
-      setCategoryError(err.data?.message || 'Erro ao criar categoria.');
-    }
+  // --- CORREÇÃO (Ponto 1) ---
+  // Callback para o modal de categoria atualizar o estado da lista
+  const updateListState = (updaterFn) => {
+    setList(updaterFn);
   };
-
-  const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm('Tem certeza? Deletar uma categoria também deletará TODOS os itens dentro dela.')) return;
-    try {
-      await apiFetch(`/categories/${categoryId}`, { method: 'DELETE' });
-      setList(prevList => ({
-        ...prevList,
-        categories: prevList.categories.filter(c => c.id !== categoryId)
-      }));
-    } catch (err) {
-      alert('Não foi possível deletar a categoria.');
-    }
-  };
+  // --- FIM DA CORREÇÃO ---
   
+  // Funções de Edição de Nome (permanecem aqui, pois ocorrem na lista principal)
   const handleStartEditCategory = (category) => setEditingCategory({ id: category.id, name: category.name });
   const handleCancelEditCategory = () => setEditingCategory({ id: null, name: '' });
 
@@ -231,7 +208,7 @@ export default function EditListPage() {
     e.preventDefault();
     if (!editingCategory.id || !editingCategory.name) return;
     
-    // 2. Correção Categoria Duplicada (na edição)
+    // Correção Categoria Duplicada (Ponto 2)
     const nameExists = list.categories.some(
       c => c.name.toLowerCase() === editingCategory.name.toLowerCase() && c.id !== editingCategory.id
     );
@@ -239,7 +216,11 @@ export default function EditListPage() {
       alert('Esta categoria já existe na sua lista.');
       return;
     }
-    // Fim da correção
+    // Validação de caracteres (Ponto 2)
+    if (!new RegExp(nameValidationRegex).test(editingCategory.name)) {
+      alert('O nome da categoria contém caracteres inválidos.');
+      return;
+    }
     
     try {
       const updatedCategory = await apiFetch(`/categories/${editingCategory.id}`, {
@@ -297,7 +278,10 @@ export default function EditListPage() {
       }));
       resetForm();
     } catch (err) {
-      setFormError(err.data?.message || 'Erro ao adicionar item.');
+      // --- CORREÇÃO (Ponto 3) ---
+      // Captura o erro 413 formatado pelo api.js
+      setFormError(err.data?.message || err.message || 'Erro ao adicionar item.');
+      // --- FIM DA CORREÇÃO ---
     }
   };
 
@@ -328,7 +312,9 @@ export default function EditListPage() {
       });
       resetForm();
     } catch (err) {
-      setFormError(err.data?.message || 'Erro ao atualizar item.');
+      // --- CORREÇÃO (Ponto 3) ---
+      setFormError(err.data?.message || err.message || 'Erro ao atualizar item.');
+      // --- FIM DA CORREÇÃO ---
     }
   };
 
@@ -359,7 +345,21 @@ export default function EditListPage() {
       categoryId: item.categoryId,
     });
     setFormError(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // --- CORREÇÃO (Ponto 5) ---
+    // Removemos o scroll para o topo
+    // window.scrollTo({ top: 0, behavior: 'smooth' });
+    // --- FIM DA CORREÇÃO ---
+
+    // --- CORREÇÃO (Ponto 4) ---
+    // Ativa o "pisca"
+    setIsEditingHighlight(true);
+    // Remove a classe de highlight após a animação (1s)
+    setTimeout(() => setIsEditingHighlight(false), 1000); 
+
+    // Scroll suave para o box de edição (Melhoria do Ponto 5)
+    editBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // --- FIM DA CORREÇÃO ---
   };
   
   // --- Funções de Moderação (sem mudança) ---
@@ -406,33 +406,26 @@ export default function EditListPage() {
     }
   }, [list]); 
 
-  // 4. Correção "Copiar Link"
+  // Correção "Copiar Link"
   const handleCopyLink = async () => {
     const publicUrl = `${window.location.origin}/lista/${list.slug}`;
     
-    // Verifica se a API do Clipboard está disponível
     if (!navigator.clipboard) {
-      // (Fallback para o método antigo, se necessário, mas é raro)
       console.error('API de Clipboard não suportada.');
       setCopyButtonText('Falhou!');
       return;
     }
-
     try {
-      // 1. Usa a nova API para escrever o texto na área de transferência
       await navigator.clipboard.writeText(publicUrl);
-      
-      // 2. Sucesso (não há salto de tela!)
       setCopyButtonText('Copiado!');
       setTimeout(() => setCopyButtonText('Copiar Link'), 2000);
-      
     } catch (err) {
       console.error('Falha ao copiar link: ', err);
       setCopyButtonText('Falhou!');
     }
   };
   
-  // --- Funções do Modal de Edição da Lista (sem mudança) ---
+  // --- Funções do Modal de Edição da Lista ---
   const handleOpenEditModal = () => {
     if (!list) return;
     setEditListValues({
@@ -443,9 +436,18 @@ export default function EditListPage() {
     setEditListError(null);
     setIsEditModalOpen(true);
   };
+  
   const handleUpdateListDetails = async (e) => {
     e.preventDefault();
     setEditListError(null);
+    
+    // --- CORREÇÃO (Ponto 2) ---
+    if (!new RegExp(nameValidationRegex).test(editListValues.title)) {
+      setEditListError('O título contém caracteres inválidos.');
+      return;
+    }
+    // --- FIM DA CORREÇÃO ---
+
     try {
       const updatedList = await apiFetch(`/lists/${list.slug}`, {
         method: 'PUT',
@@ -454,26 +456,39 @@ export default function EditListPage() {
           eventDate: editListValues.eventDate || null,
         }),
       });
+      
+      // Atualiza a lista no estado
       setList(prevList => ({
         ...prevList,
         title: updatedList.title,
         description: updatedList.description,
         eventDate: updatedList.eventDate,
       }));
-      setIsEditModalOpen(false); 
+      
+      setIsEditModalOpen(false); // Fecha o modal
+      
     } catch (err) {
       console.error("Erro ao atualizar lista:", err);
       setEditListError(err.data?.message || 'Erro ao salvar alterações.');
     }
   };
 
-  // --- 1. Funções de Upload de Imagem ---
+  // --- Funções de Upload de Imagem ---
   const handleImageFile = async (file) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setFormError("Arquivo inválido. Por favor, envie uma imagem.");
       return;
     }
+    
+    // --- CORREÇÃO (Ponto 3) ---
+    // Pré-validação do tamanho (ex: 5MB) para evitar processamento desnecessário
+    // O limite do backend será 5mb, mas o da compressão é 1mb.
+    if (file.size > 5 * 1024 * 1024) { 
+      setFormError('A imagem original é muito grande (Max 5MB).');
+      return;
+    }
+    // --- FIM DA CORREÇÃO ---
     
     setIsUploading(true);
     setFormError(null);
@@ -545,7 +560,7 @@ export default function EditListPage() {
 
   return (
     <>
-      {/* Cabeçalho (sem mudança) */}
+      {/* Cabeçalho */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-6">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
@@ -573,28 +588,38 @@ export default function EditListPage() {
         
         {/* Coluna 1: Formulários (Categoria e Itens) */}
         <div className="md:col-span-1 space-y-6">
-          {/* Formulário de Categoria (com erro) */}
-          <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
-            <h2 className="text-xl font-bold mb-4">Adicionar Categoria</h2>
-            <form onSubmit={handleCreateCategory} className="flex space-x-2">
-              <input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Ex: Cozinha" required className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-              <button type="submit" className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-700 hover:bg-gray-800">
-                Criar
-              </button>
-            </form>
-            {categoryError && <p className="text-sm text-red-600 mt-2">{categoryError}</p>}
-          </div>
+          
+          {/* --- CORREÇÃO (Ponto 1) --- */}
+          {/* O box de "Adicionar Categoria" foi removido daqui. */}
+          {/* --- FIM DA CORREÇÃO --- */}
 
-          {/* Formulário de Item (ATUALIZADO) */}
-          <div className="bg-white p-6 rounded-lg shadow-md sticky top-48">
+
+          {/* --- Formulário de Item (ATUALIZADO) --- */}
+          <div 
+            // --- CORREÇÃO (Ponto 4) ---
+            ref={editBoxRef} // Ref para o scroll
+            className={`bg-white p-6 rounded-lg shadow-md sticky top-6 ${isEditingHighlight ? 'flash-highlight' : ''}`}
+            // --- FIM DA CORREÇÃO ---
+          >
             <h2 className="text-xl font-bold mb-4">
               {editingItem ? `Editando: ${editingItem.name}` : 'Adicionar Novo Item'}
             </h2>
             <form onSubmit={handleSubmitItem} className="space-y-4">
-              {/* Campos do formulário (Categoria, Nome, Preço) */}
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoria*</label>
-                <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                {/* --- CORREÇÃO (Ponto 1) --- */}
+                {/* Botão de Gerenciar Categoria ao lado do label */}
+                <div className="flex justify-between items-center mb-1">
+                  <label htmlFor="category" className="block text-sm font-medium text-gray-700">Categoria*</label>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsCategoryModalOpen(true)} 
+                    className="text-xs text-blue-600 hover:underline font-medium"
+                  >
+                    Gerenciar
+                  </button>
+                </div>
+                {/* --- FIM DA CORREÇÃO --- */}
+                <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Selecione uma categoria...</option>
                   {list.categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -639,7 +664,7 @@ export default function EditListPage() {
                         <p>Arraste e solte ou <span className="text-blue-600 font-medium">clique aqui</span></p>
                       </div>
                     )}
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF (max 1MB)</p>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF (max 5MB)</p>
                   </div>
                 </label>
                 
@@ -678,7 +703,6 @@ export default function EditListPage() {
               )}
               {/* --- Fim do Upload de Imagem --- */}
               
-              {/* Campos do formulário (Link, Descrição) */}
               <div>
                 <label htmlFor="itemLink" className="block text-sm font-medium text-gray-700">Link da Loja</label>
                 <input type="text" id="itemLink" value={formValues.linkUrl} onChange={(e) => setFormValues(f => ({ ...f, linkUrl: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
@@ -710,11 +734,11 @@ export default function EditListPage() {
           </div>
         </div>
 
-        {/* Coluna 2: Categorias e Itens (sem mudança) */}
+        {/* Coluna 2: Categorias e Itens */}
         <div className="md:col-span-2 space-y-6">
           {list.categories.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
-              <p className="text-gray-600">Nenhuma categoria criada ainda. Crie sua primeira categoria no formulário ao lado.</p>
+              <p className="text-gray-600">Nenhuma categoria criada ainda. Clique em "Gerenciar" acima para criar sua primeira categoria.</p>
             </div>
           ) : categoriesWithItems.length === 0 ? (
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -733,6 +757,11 @@ export default function EditListPage() {
                         onChange={(e) => setEditingCategory(c => ({ ...c, name: e.target.value }))}
                         className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                         autoFocus
+                        // --- CORREÇÃO (Ponto 2) ---
+                        maxLength={50}
+                        pattern={nameValidationRegex}
+                        title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
+                        // --- FIM DA CORREÇÃO ---
                       />
                       <button type="submit" className="text-green-600 hover:text-green-800 p-1">Salvar</button>
                       <button type="button" onClick={handleCancelEditCategory} className="text-gray-500 hover:text-gray-700 p-1">Cancelar</button>
@@ -750,7 +779,8 @@ export default function EditListPage() {
                     </div>
                   )}
                   
-                  {editingCategory.id !== category.id && (
+                  {/* O botão de deletar categoria foi movido para o modal (Ponto 1) */}
+                  {/* {editingCategory.id !== category.id && (
                     <button 
                       onClick={() => handleDeleteCategory(category.id)}
                       className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center space-x-1"
@@ -760,10 +790,11 @@ export default function EditListPage() {
                       <span>Deletar</span>
                     </button>
                   )}
+                  */}
                 </div>
                 
                 {category.items.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Nenhum item nesta categoria.</p>
+                  <p className="text-gray-500 text-sm">Nenhum item nesta categoria. Adicione um item usando o formulário ao lado.</p>
                 ) : (
                   <div className="space-y-3">
                     {category.items.map((item) => (
@@ -784,7 +815,7 @@ export default function EditListPage() {
         </div>
       </div>
       
-      {/* Modal de Edição da Lista (sem mudança) */}
+      {/* Modal de Edição da Lista */}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={() => setIsEditModalOpen(false)}>
           <div className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
@@ -798,6 +829,11 @@ export default function EditListPage() {
                   value={editListValues.title}
                   onChange={(e) => setEditListValues(v => ({ ...v, title: e.target.value }))}
                   required
+                  // --- CORREÇÃO (Ponto 2) ---
+                  maxLength={100}
+                  pattern={nameValidationRegex}
+                  title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
+                  // --- FIM DA CORREÇÃO ---
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                 />
               </div>
@@ -834,6 +870,18 @@ export default function EditListPage() {
           </div>
         </div>
       )}
+      
+      {/* --- CORREÇÃO (Ponto 1) --- */}
+      {/* Renderiza o novo modal de categorias (somente se a lista estiver carregada) */}
+      {list && (
+        <CategoryManagerModal
+          isOpen={isCategoryModalOpen}
+          onClose={() => setIsCategoryModalOpen(false)}
+          list={list}
+          onUpdateList={updateListState} // Passa a função de callback
+        />
+      )}
+      {/* --- FIM DA CORREÇÃO --- */}
     </>
   );
 }

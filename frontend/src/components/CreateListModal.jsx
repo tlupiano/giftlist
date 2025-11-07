@@ -20,6 +20,12 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // --- CORREÇÃO (Ponto 2) ---
+  // Regex para validação de nomes (letras, números, acentos, espaço, hífen, apóstrofo)
+  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
+  // --- FIM DA CORREÇÃO ---
+
+
   // Define o título do modal
   const modalTitle = templateName 
     ? `Criar a partir de "${templateName}"`
@@ -31,8 +37,16 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
     setFormError(null);
     setIsSubmitting(true);
 
+    // Validação do Slug
     if (!/^[a-z0-9-]+$/.test(slug)) {
       setFormError('URL (Slug) deve conter apenas letras minúsculas, números e hífens.');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Validação do Título (Ponto 2)
+    if (!new RegExp(nameValidationRegex).test(title)) {
+      setFormError('O título contém caracteres inválidos.');
       setIsSubmitting(false);
       return;
     }
@@ -73,6 +87,14 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
+    
+    // Validação (Ponto 2)
+    if (newTitle && !new RegExp(nameValidationRegex).test(newTitle)) {
+      setFormError('O título contém caracteres inválidos.');
+    } else {
+      setFormError(null);
+    }
+
     const newSlug = newTitle
       .toLowerCase()
       .normalize("NFD") // Remove acentos
@@ -86,8 +108,10 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
   // Define o título inicial se for um template
   useEffect(() => {
     if (templateName) {
-      setTitle(`Minha ${templateName}`);
-      handleTitleChange({ target: { value: `Minha ${templateName}` } });
+      const newTitle = `Minha ${templateName}`;
+      setTitle(newTitle);
+      // Simula o evento de change para acionar a geração do slug
+      handleTitleChange({ target: { value: newTitle } });
     }
   }, [templateName]); // Roda só uma vez quando o modal abre com um templateName
 
@@ -110,6 +134,11 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
               value={title}
               onChange={handleTitleChange}
               required
+              // --- CORREÇÃO (Ponto 2) ---
+              maxLength={100}
+              pattern={nameValidationRegex}
+              title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
+              // --- FIM DA CORREÇÃO ---
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -123,6 +152,7 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               required
+              maxLength={150}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="mt-1 text-xs text-gray-500">Ex: cha-da-ana-e-bruno</p>

@@ -8,8 +8,6 @@ const API_URL = 'http://localhost:5000/api';
  */
 export const apiFetch = async (endpoint, options = {}) => {
   // 1. Pega o token salvo pelo AuthContext
-  // --- CORREÇÃO AQUI ---
-  // Lendo 'authToken' em vez de 'token'
   const token = localStorage.getItem('authToken');
 
   // 2. Define os cabeçalhos (headers)
@@ -34,6 +32,17 @@ export const apiFetch = async (endpoint, options = {}) => {
 
   // 6. Trata a resposta
   if (!response.ok) {
+    
+    // --- CORREÇÃO (Ponto 3) ---
+    // Adiciona uma mensagem de erro elegante para Payload Too Large
+    if (response.status === 413) {
+      const error = new Error('A imagem é muito grande, mesmo após a compressão. Tente uma imagem menor ou use uma URL.');
+      error.status = 413;
+      error.data = { message: 'A imagem é muito grande, mesmo após a compressão. Tente uma imagem menor ou use uma URL.' };
+      throw error;
+    }
+    // --- FIM DA CORREÇÃO ---
+
     // Se a resposta não for OK (ex: 401, 404, 500),
     // tenta ler o JSON de erro e o joga como um erro
     const errorData = await response.json().catch(() => ({}));
