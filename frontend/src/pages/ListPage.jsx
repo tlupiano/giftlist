@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 import ProgressBar from '../components/ProgressBar';
+import { useSocket } from '../context/SocketContext.jsx'; // <-- SUGESTÃO 3
 
 // --- Componente Modal de Reserva (sem mudanças) ---
 function ReservationModal({ item, onClose, onSubmit, error }) {
@@ -59,7 +60,7 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
   );
 }
 
-// --- Componente de Card de Item (ATUALIZADO) ---
+// --- Componente de Card de Item (sem mudanças) ---
 function ItemCard({ item, onReserveClick }) {
   const { status } = item;
   let buttonContent;
@@ -91,12 +92,11 @@ function ItemCard({ item, onReserveClick }) {
 
   return (
     <div className={`border rounded-lg shadow-md overflow-hidden flex flex-col ${bgColor} ${opacity}`}>
-      {/* 3. Correção Imagem Cortada */}
       <div className="w-full h-48 bg-gray-100 rounded-t-lg flex items-center justify-center">
         <img 
           src={itemImg} 
           alt={item.name} 
-          className="w-full h-full object-contain" // <-- MUDANÇA AQUI
+          className="w-full h-full object-contain"
           onError={(e) => { e.target.onerror = null; e.target.src = placeholderImg; }} 
         />
       </div>
@@ -125,7 +125,7 @@ function ItemCard({ item, onReserveClick }) {
   );
 }
 
-// --- Componente da Página Principal (sem mudanças) ---
+// --- Componente da Página Principal (ATUALIZADO) ---
 export default function ListPage() {
   const { slug } = useParams(); 
   const [list, setList] = useState(null);
@@ -138,51 +138,118 @@ export default function ListPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [purchasedItems, setPurchasedItems] = useState(0);
 
-  const fetchList = async (isSilent = false) => {
-    try {
-      if (!isSilent) {
-        setLoading(true);
-      }
-      const data = await apiFetch(`/lists/${slug}`);
-      setList(data);
-      setError(null);
-      
-      let total = 0;
-      let purchased = 0;
-      data.categories.forEach(c => {
+  // --- SUGESTÃO 3: Usar o Socket ---
+  const socket = useSocket();
+
+  // Função para calcular o progresso
+  const calculateProgress = (categories) => {
+    let total = 0;
+    let purchased = 0;
+    if (categories) {
+      categories.forEach(c => {
         total += c.items.length;
         purchased += c.items.filter(i => i.status === 'PURCHASED').length;
       });
-      setTotalItems(total);
-      setPurchasedItems(purchased);
+    }
+    setTotalItems(total);
+    setPurchasedItems(purchased);
+  };
+
+  // Busca inicial da lista
+  const fetchList = async () => {
+    try {
+      setLoading(true);
+      const data = await apiFetch(`/lists/${slug}`);
+      setList(data);
+      calculateProgress(data.categories); // Calcula o progresso inicial
+      setError(null);
     } catch (err) {
       console.error("Erro ao buscar lista:", err);
-      if (!isSilent || !list) {
-        setError(err.message || 'Erro ao carregar a lista.');
-      }
+      setError(err.message || 'Erro ao carregar a lista.');
     } finally {
-      if (!isSilent) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
   
   useEffect(() => {
-    fetchList(false);
+    fetchList();
   }, [slug]);
 
+  // --- SUGESTÃO 3: Substituir o Polling por Socket.io ---
+  useEffect(() => {
+    if (!socket || !slug) return;
+
+    // 1. Entra na "sala" da lista
+    socket.emit('joinListRoom', slug);
+
+    // 2. Ouve por atualizações de itens
+    const handleItemUpdate = (updatedItem) => {
+      console.log('[SOCKET] Item atualizado recebido:', updatedItem);
+      
+      setList((prevList) => {
+        if (!prevList) return null;
+        
+        // Atualiza o item no estado da lista
+        const newCategories = prevList.categories.map(c => ({
+          ...c,
+          items: c.items.map(i => i.id === updatedItem.id ? updatedItem : i)
+        }));
+        
+        // Recalcula o progresso
+        calculateProgress(newCategories);
+        
+        return { ...prevList, categories: newCategories };
+      });
+    };
+    
+    // 3. Ouve por deleção de itens
+    const handleItemDelete = ({ id: deletedItemId, categoryId }) => {
+      console.log('[SOCKET] Item deletado recebido:', deletedItemId);
+      setList((prevList) => {
+        if (!prevList) return null;
+
+        const newCategories = prevList.categories.map(c => {
+          if (c.id === categoryId) {
+            return {
+              ...c,
+              items: c.items.filter(i => i.id !== deletedItemId)
+            };
+          }
+          return c;
+        });
+
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+    };
+
+    socket.on('item:updated', handleItemUpdate);
+    socket.on('item:deleted', handleItemDelete); 
+    // (Ouve também o 'item:created' se quiser atualizações em tempo real ao adicionar)
+    // socket.on('item:created', handleItemCreated); 
+
+    // 4. Limpa ao sair
+    return () => {
+      socket.emit('leaveListRoom', slug);
+      socket.off('item:updated', handleItemUpdate);
+      socket.off('item:deleted', handleItemDelete);
+    };
+  }, [socket, slug]); // Roda quando o socket ou o slug mudam
+  // --- FIM DA SUGESTÃO 3 ---
+
+  /* O Polling antigo foi REMOVIDO
   useEffect(() => {
     if (!list) {
       return; 
     }
-    
     const intervalId = setInterval(() => {
       console.log("[Polling Página Pública] Verificando atualizações...");
-      fetchList(true);
+      fetchList(true); // Esta lógica de 'isSilent' foi removida
     }, 10000); 
 
     return () => clearInterval(intervalId);
   }, [list, slug]); 
+  */
 
   const handleReserveClick = (item) => {
     setModalError(null);
@@ -193,18 +260,15 @@ export default function ListPage() {
     if (!modalItem) return;
     setModalError(null);
     try {
-      const updatedItem = await apiFetch(`/items/${modalItem.id}/reserve`, {
+      // O backend agora vai emitir o evento 'item:updated'
+      // O listener do socket nesta página vai capturar e atualizar o estado.
+      await apiFetch(`/items/${modalItem.id}/reserve`, {
         method: 'PATCH',
         body: JSON.stringify({ purchaserName, purchaserEmail }),
       });
       
-      setList(prevList => ({
-        ...prevList,
-        categories: prevList.categories.map(c => ({
-          ...c,
-          items: c.items.map(i => i.id === modalItem.id ? updatedItem : i)
-        }))
-      }));
+      // Não precisamos mais atualizar o estado manualmente aqui
+      
       setModalItem(null);
       
     } catch (err) {

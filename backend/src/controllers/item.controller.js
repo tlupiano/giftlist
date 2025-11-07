@@ -1,9 +1,9 @@
 import prisma from '../lib/prisma.js';
+import { getIO } from '../socket.js'; // <-- SUGESTÃO 3
 
 // --- Criar um novo Item (Protegido - Dono) ---
-// *** MUDANÇA SIGNIFICATIVA AQUI ***
 export const createItem = async (req, res) => {
-  // 1. Agora recebemos 'categoryId' em vez de 'listId'
+  // ... (código existente sem alteração)
   const { name, price, linkUrl, imageUrl, description, categoryId } = req.body;
   const userId = req.userId; 
 
@@ -12,10 +12,13 @@ export const createItem = async (req, res) => {
   }
 
   try {
-    // 2. Verificamos se a categoria existe E se o usuário é o dono
     const category = await prisma.category.findUnique({
       where: { id: categoryId },
-      include: { list: true }, // Puxamos a lista para verificar o dono
+      include: { 
+        list: { 
+          select: { userId: true, slug: true } // <-- SUGESTÃO 3: Incluir slug
+        } 
+      }, 
     });
 
     if (!category) {
@@ -25,7 +28,6 @@ export const createItem = async (req, res) => {
       return res.status(403).json({ message: 'Acesso negado. Você não é o dono desta lista/categoria.' });
     }
 
-    // 3. Criamos o item LIGADO à categoria
     const newItem = await prisma.item.create({
       data: {
         name,
@@ -33,9 +35,16 @@ export const createItem = async (req, res) => {
         price: price ? parseFloat(price) : null,
         linkUrl,
         imageUrl,
-        categoryId: categoryId, // 4. Usamos categoryId
+        categoryId: categoryId, 
       },
     });
+
+    // --- SUGESTÃO 3: Emitir evento de novo item ---
+    // (O 'item:updated' pode ser usado para adicionar/atualizar)
+    const slug = category.list.slug;
+    getIO().to(slug).emit('item:created', newItem);
+    // --- FIM DA SUGESTÃO 3 ---
+
     res.status(201).json(newItem);
   } catch (error) {
     console.error('[ITEM_CREATE] Erro:', error);
@@ -44,27 +53,32 @@ export const createItem = async (req, res) => {
 };
 
 // --- Atualizar um Item (Protegido - Dono) ---
-// *** MUDANÇA SIGNIFICATIVA AQUI ***
 export const updateItem = async (req, res) => {
   const { id } = req.params; 
-  const { name, price, linkUrl, imageUrl, description, categoryId } = req.body; // 1. Pode-se mudar a categoria
+  const { name, price, linkUrl, imageUrl, description, categoryId } = req.body;
   const userId = req.userId;
 
   try {
-    // 2. Verificamos se o item existe e quem é o dono
     const item = await prisma.item.findUnique({
       where: { id },
-      include: { category: { include: { list: true } } }, // Puxa item -> categoria -> lista
+      include: { 
+        category: { 
+          include: { 
+            list: { 
+              select: { userId: true, slug: true } // <-- SUGESTÃO 3
+            } 
+          } 
+        } 
+      },
     });
     if (!item) {
       return res.status(404).json({ message: 'Item não encontrado.' });
     }
-    // 3. A verificação de dono agora é mais "funda"
     if (item.category.list.userId !== userId) {
       return res.status(403).json({ message: 'Acesso negado. Você não é o dono desta lista.' });
     }
 
-    // 4. (Opcional) Se o usuário mandou um novo categoryId, verificamos se ele é dono
+    // ... (lógica de verificação da nova categoria, se houver)
     if (categoryId && categoryId !== item.categoryId) {
       const newCategory = await prisma.category.findUnique({
         where: { id: categoryId },
@@ -83,9 +97,15 @@ export const updateItem = async (req, res) => {
         price: price ? parseFloat(price) : null,
         linkUrl,
         imageUrl,
-        categoryId: categoryId || item.categoryId, // 5. Atualiza a categoria se ela foi enviada
+        categoryId: categoryId || item.categoryId,
       },
     });
+
+    // --- SUGESTÃO 3: Emitir evento de atualização ---
+    const slug = item.category.list.slug;
+    getIO().to(slug).emit('item:updated', updatedItem);
+    // --- FIM DA SUGESTÃO 3 ---
+
     res.status(200).json(updatedItem);
   } catch (error) {
     console.error('[ITEM_UPDATE] Erro:', error);
@@ -94,16 +114,22 @@ export const updateItem = async (req, res) => {
 };
 
 // --- Deletar um Item (Protegido - Dono) ---
-// *** MUDANÇA SIGNIFICATIVA AQUI ***
 export const deleteItem = async (req, res) => {
   const { id } = req.params; 
   const userId = req.userId;
 
   try {
-    // 1. Verificação de dono mais "funda"
     const item = await prisma.item.findUnique({
       where: { id },
-      include: { category: { include: { list: true } } },
+      include: { 
+        category: { 
+          include: { 
+            list: { 
+              select: { userId: true, slug: true } // <-- SUGESTÃO 3
+            } 
+          } 
+        } 
+      },
     });
     if (!item) {
       return res.status(404).json({ message: 'Item não encontrado.' });
@@ -113,6 +139,12 @@ export const deleteItem = async (req, res) => {
     }
 
     await prisma.item.delete({ where: { id } });
+
+    // --- SUGESTÃO 3: Emitir evento de deleção ---
+    const slug = item.category.list.slug;
+    getIO().to(slug).emit('item:deleted', { id: item.id, categoryId: item.categoryId });
+    // --- FIM DA SUGESTÃO 3 ---
+
     res.status(204).send(); 
   } catch (error) {
     console.error('[ITEM_DELETE] Erro:', error);
@@ -121,7 +153,6 @@ export const deleteItem = async (req, res) => {
 };
 
 // --- Funções de Reserva (Públicas / Dono) ---
-// *** MUDANÇAS MENORES AQUI *** (só na verificação de dono)
 
 export const reserveItem = async (req, res) => {
   const { id } = req.params;
@@ -132,8 +163,19 @@ export const reserveItem = async (req, res) => {
   }
 
   try {
-    // Não precisamos checar o dono aqui, pois é uma rota pública
-    const item = await prisma.item.findUnique({ where: { id } });
+    const item = await prisma.item.findUnique({ 
+      where: { id },
+      include: { 
+        category: { 
+          include: { 
+            list: { 
+              select: { slug: true } // <-- SUGESTÃO 3
+            } 
+          } 
+        } 
+      } 
+    });
+    
     if (!item) {
       return res.status(404).json({ message: 'Item não encontrado.' });
     }
@@ -150,6 +192,11 @@ export const reserveItem = async (req, res) => {
       },
     });
 
+    // --- SUGESTÃO 3: Emitir evento ---
+    const slug = item.category.list.slug;
+    getIO().to(slug).emit('item:updated', updatedItem);
+    // --- FIM DA SUGESTÃO 3 ---
+
     res.status(200).json(updatedItem);
   } catch (error) {
     console.error('[ITEM_RESERVE] Erro:', error);
@@ -162,10 +209,17 @@ export const confirmPurchase = async (req, res) => {
   const userId = req.userId;
 
   try {
-    // 1. Verificação de dono mais "funda"
     const item = await prisma.item.findUnique({
       where: { id },
-      include: { category: { include: { list: true } } },
+      include: { 
+        category: { 
+          include: { 
+            list: { 
+              select: { userId: true, slug: true } // <-- SUGESTÃO 3
+            } 
+          } 
+        } 
+      },
     });
 
     if (!item) {
@@ -182,6 +236,11 @@ export const confirmPurchase = async (req, res) => {
       where: { id },
       data: { status: 'PURCHASED' },
     });
+    
+    // --- SUGESTÃO 3: Emitir evento ---
+    const slug = item.category.list.slug;
+    getIO().to(slug).emit('item:updated', updatedItem);
+    // --- FIM DA SUGESTÃO 3 ---
 
     res.status(200).json(updatedItem);
   } catch (error) {
@@ -195,10 +254,17 @@ export const cancelReservation = async (req, res) => {
   const userId = req.userId;
 
   try {
-    // 1. Verificação de dono mais "funda"
     const item = await prisma.item.findUnique({
       where: { id },
-      include: { category: { include: { list: true } } },
+      include: { 
+        category: { 
+          include: { 
+            list: { 
+              select: { userId: true, slug: true } // <-- SUGESTÃO 3
+            } 
+          } 
+        } 
+      },
     });
 
     if (!item) {
@@ -219,6 +285,11 @@ export const cancelReservation = async (req, res) => {
         purchaserEmail: null,
       },
     });
+
+    // --- SUGESTÃO 3: Emitir evento ---
+    const slug = item.category.list.slug;
+    getIO().to(slug).emit('item:updated', updatedItem);
+    // --- FIM DA SUGESTÃO 3 ---
 
     res.status(200).json(updatedItem);
   } catch (error) {

@@ -20,10 +20,12 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- CORREÇÃO (Ponto 2) ---
+  // --- SUGESTÃO 1: Melhorar Geração do "Slug" ---
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
+  // --- FIM DA SUGESTÃO 1 ---
+
   // Regex para validação de nomes (letras, números, acentos, espaço, hífen, apóstrofo)
   const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
-  // --- FIM DA CORREÇÃO ---
 
 
   // Define o título do modal
@@ -38,13 +40,13 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
     setIsSubmitting(true);
 
     // Validação do Slug
-    if (!/^[a-z0-9-]+$/.test(slug)) {
-      setFormError('URL (Slug) deve conter apenas letras minúsculas, números e hífens.');
+    if (!/^[a-z0-9-]+$/.test(slug) || slug.length === 0) {
+      setFormError('URL (Slug) deve conter apenas letras minúsculas, números e hífens, e não pode estar vazio.');
       setIsSubmitting(false);
       return;
     }
     
-    // Validação do Título (Ponto 2)
+    // Validação do Título
     if (!new RegExp(nameValidationRegex).test(title)) {
       setFormError('O título contém caracteres inválidos.');
       setIsSubmitting(false);
@@ -52,7 +54,6 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
     }
 
     // Define o endpoint e o corpo da requisição
-    // com base na presença do templateId
     const isFromTemplate = !!templateId;
     const endpoint = isFromTemplate ? '/lists/from-template' : '/lists';
     
@@ -88,20 +89,34 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
     const newTitle = e.target.value;
     setTitle(newTitle);
     
-    // Validação (Ponto 2)
+    // Validação
     if (newTitle && !new RegExp(nameValidationRegex).test(newTitle)) {
       setFormError('O título contém caracteres inválidos.');
-    } else {
+    } else if (formError === 'O título contém caracteres inválidos.') {
       setFormError(null);
     }
 
-    const newSlug = newTitle
+    // --- SUGESTÃO 1: Só atualiza o slug se não foi editado manualmente ---
+    if (!isSlugManuallyEdited) {
+      const newSlug = newTitle
+        .toLowerCase()
+        .normalize("NFD") // Remove acentos
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
+        .trim()
+        .replace(/\s+/g, '-'); // Troca espaços por hífens
+      setSlug(newSlug);
+    }
+  };
+  
+  // --- SUGESTÃO 1: Nova função para o input do slug ---
+  const handleSlugChange = (e) => {
+    // Trava a geração automática
+    setIsSlugManuallyEdited(true);
+    // Limpa o slug (apenas minúsculas, números e hífens)
+    const newSlug = e.target.value
       .toLowerCase()
-      .normalize("NFD") // Remove acentos
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9\s-]/g, '') // Remove caracteres especiais
-      .trim()
-      .replace(/\s+/g, '-'); // Troca espaços por hífens
+      .replace(/[^a-z0-9-]/g, '');
     setSlug(newSlug);
   };
   
@@ -132,13 +147,11 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
               type="text"
               id="title"
               value={title}
-              onChange={handleTitleChange}
+              onChange={handleTitleChange} // <--- USA handleTitleChange
               required
-              // --- CORREÇÃO (Ponto 2) ---
               maxLength={100}
               pattern={nameValidationRegex}
               title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
-              // --- FIM DA CORREÇÃO ---
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -150,7 +163,7 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
               type="text"
               id="slug"
               value={slug}
-              onChange={(e) => setSlug(e.target.value)}
+              onChange={handleSlugChange} // <--- USA handleSlugChange
               required
               maxLength={150}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
