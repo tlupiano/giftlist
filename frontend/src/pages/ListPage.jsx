@@ -222,34 +222,38 @@ export default function ListPage() {
         return { ...prevList, categories: newCategories };
       });
     };
+    
+    // 4. Ouve por criação de itens
+    const handleItemCreated = (newItem) => {
+      console.log('[SOCKET] Item criado recebido:', newItem);
+      setList((prevList) => {
+        if (!prevList) return null;
+        const newCategories = prevList.categories.map(c => {
+          if (c.id === newItem.categoryId) {
+            // Adiciona o novo item à categoria correta
+            return { ...c, items: [...c.items, newItem] };
+          }
+          return c;
+        });
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+    };
 
+    socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
-    // (Ouve também o 'item:created' se quiser atualizações em tempo real ao adicionar)
-    // socket.on('item:created', handleItemCreated); 
 
-    // 4. Limpa ao sair
+    // 5. Limpa ao sair
     return () => {
       socket.emit('leaveListRoom', slug);
+      socket.off('item:created', handleItemCreated);
       socket.off('item:updated', handleItemUpdate);
       socket.off('item:deleted', handleItemDelete);
     };
   }, [socket, slug]); // Roda quando o socket ou o slug mudam
   // --- FIM DA SUGESTÃO 3 ---
 
-  /* O Polling antigo foi REMOVIDO
-  useEffect(() => {
-    if (!list) {
-      return; 
-    }
-    const intervalId = setInterval(() => {
-      console.log("[Polling Página Pública] Verificando atualizações...");
-      fetchList(true); // Esta lógica de 'isSilent' foi removida
-    }, 10000); 
-
-    return () => clearInterval(intervalId);
-  }, [list, slug]); 
-  */
 
   const handleReserveClick = (item) => {
     setModalError(null);

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../utils/api.js';
-import CreateListModal from '../components/CreateListModal'; // <-- 1. Importar o novo modal
+import CreateListModal from '../components/CreateListModal';
+import ConfirmationModal from '../components/ConfirmationModal'; // <-- Importa o modal elegante
 
 // --- Ícones ---
 function DeleteIcon() {
@@ -12,7 +13,6 @@ function DeleteIcon() {
     </svg>
   );
 }
-// Ícones dos templates (baseados no seed.js)
 function IconBaby() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -44,25 +44,32 @@ const iconMap = {
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  // Estados das listas (sem mudança)
   const [myLists, setMyLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- NOVOS ESTADOS ---
-  // Estado para os templates
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
-  // Estado para controlar o modal
+  
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null); // null = manual, ou objeto template
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  // --- Estado para o modal de confirmação ---
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    confirmText: 'Confirmar',
+    confirmColor: 'red',
+  });
 
   // --- Efeito para buscar as LISTAS do usuário ---
   useEffect(() => {
     const fetchLists = async () => {
       try {
         setLoading(true);
-        const lists = await apiFetch('/lists'); // GET /api/lists
+        const lists = await apiFetch('/lists'); 
         setMyLists(lists);
         setError(null);
       } catch (err) {
@@ -77,12 +84,12 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  // --- NOVO Efeito para buscar os TEMPLATES ---
+  // --- Efeito para buscar os TEMPLATES ---
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         setLoadingTemplates(true);
-        const data = await apiFetch('/templates'); // GET /api/templates
+        const data = await apiFetch('/templates'); 
         setTemplates(data);
       } catch (err) {
         console.error("Erro ao buscar templates:", err);
@@ -91,14 +98,13 @@ export default function DashboardPage() {
       }
     };
     fetchTemplates();
-  }, []); // Roda só uma vez
+  }, []); 
 
   // --- Funções de Abertura do Modal ---
   const handleOpenManualModal = () => {
-    setSelectedTemplate(null); // 'null' significa modo manual
+    setSelectedTemplate(null);
     setModalOpen(true);
   };
-
   const handleOpenTemplateModal = (template) => {
     setSelectedTemplate(template);
     setModalOpen(true);
@@ -109,26 +115,44 @@ export default function DashboardPage() {
     setMyLists([newList, ...myLists]);
   };
   
-  // --- Função para DELETAR a lista (sem mudança) ---
-  const handleDeleteList = async (listSlug) => {
-    if (!window.confirm('Tem certeza que quer deletar esta lista? Esta ação não pode ser desfeita.')) {
-      return;
-    }
+  // --- Funções para DELETAR a lista (atualizadas) ---
+  const handleCloseConfirm = () => {
+    setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  };
+
+  // Esta é a função que o botão "Deletar" chama
+  const promptDeleteList = (listSlug, listTitle) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Deletar Lista',
+      message: `Tem certeza que quer deletar a lista "${listTitle}"? Esta ação não pode ser desfeita.`,
+      // Define a ação de confirmação
+      onConfirm: () => executeDeleteList(listSlug), 
+      confirmText: 'Deletar',
+      confirmColor: 'red'
+    });
+  };
+
+  // Esta é a lógica de deleção que o modal executa
+  const executeDeleteList = async (listSlug) => {
     try {
       await apiFetch(`/lists/${listSlug}`, {
         method: 'DELETE',
       });
       setMyLists(myLists.filter(list => list.slug !== listSlug));
+      // Não precisa de toast aqui, a lista some (feedback visual)
     } catch (err) {
       console.error(err);
       alert(err.data?.message || 'Não foi possível deletar a lista.');
+    } finally {
+      handleCloseConfirm(); // Fecha o modal de confirmação
     }
   };
   
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
       
-      {/* Coluna 1: Templates de Criação (ATUALIZADO) */}
+      {/* Coluna 1: Templates de Criação (sem mudança) */}
       <div className="md:col-span-1">
         <div className="bg-white p-6 rounded-lg shadow-md sticky top-6">
           <h2 className="text-2xl font-bold mb-4">Criar Nova Lista</h2>
@@ -171,7 +195,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Coluna 2: Listas Existentes (sem mudança) */}
+      {/* Coluna 2: Listas Existentes (botão de deletar atualizado) */}
       <div className="md:col-span-2">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h1 className="text-3xl font-bold mb-4">Minhas Listas</h1>
@@ -218,7 +242,7 @@ export default function DashboardPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation(); 
-                          handleDeleteList(list.slug);
+                          promptDeleteList(list.slug, list.title); // <--- MUDANÇA AQUI
                         }}
                         className="p-2 flex-shrink-0 text-red-600 bg-red-100 rounded-md hover:bg-red-200"
                         title="Deletar Lista"
@@ -234,17 +258,26 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* --- Renderização Condicional do Modal --- */}
+      {/* Renderização Condicional do Modal de Criação */}
       {modalOpen && (
         <CreateListModal
-          // Se selectedTemplate existir, passa os dados dele
           templateId={selectedTemplate?.id}
           templateName={selectedTemplate?.name}
-          // Funções de controle
           onClose={() => setModalOpen(false)}
           onListCreated={handleListCreated}
         />
       )}
+
+      {/* Renderiza o novo modal de confirmação */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={handleCloseConfirm}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        confirmColor={confirmModal.confirmColor}
+      />
     </div>
   );
 }

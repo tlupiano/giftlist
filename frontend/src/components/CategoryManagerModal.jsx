@@ -17,21 +17,36 @@ function DeleteIcon() {
  * @param {function} props.onClose - Função para fechar o modal
  * @param {object} props.list - O objeto da lista (precisamos do ID e das categorias)
  * @param {function} props.onUpdateList - Callback para atualizar a lista na página principal
+ * @param {function} props.requestConfirmation - (NOVO) Função do pai para pedir confirmação
  */
-export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateList }) {
+export default function CategoryManagerModal({ 
+  isOpen, 
+  onClose, 
+  list, 
+  onUpdateList, 
+  requestConfirmation 
+}) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryError, setCategoryError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Regex para validação de nomes (letras, números, acentos, espaço, hífen, apóstrofo)
+  // Regex para validação de nomes
   const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
+
+  // Limpa o formulário ao fechar
+  const handleClose = () => {
+    setNewCategoryName('');
+    setCategoryError(null);
+    setIsSubmitting(false);
+    onClose();
+  };
 
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     setCategoryError(null);
     if (!newCategoryName) return;
 
-    // Validação de duplicidade (do Ponto 2)
+    // Validação de duplicidade
     const nameExists = list.categories.some(
       c => c.name.toLowerCase() === newCategoryName.toLowerCase()
     );
@@ -40,7 +55,7 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
       return;
     }
     
-    // Validação de caracteres (do Ponto 2)
+    // Validação de caracteres
     if (!new RegExp(nameValidationRegex).test(newCategoryName)) {
       setCategoryError('O nome contém caracteres inválidos.');
       return;
@@ -53,7 +68,6 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
         body: JSON.stringify({ name: newCategoryName, listId: list.id }),
       });
       
-      // Atualiza a lista no estado pai
       onUpdateList(prevList => ({
         ...prevList,
         categories: [...prevList.categories, { ...newCategory, items: [] }] 
@@ -67,25 +81,33 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
     }
   };
 
-  const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm('Tem certeza? Deletar uma categoria também deletará TODOS os itens dentro dela.')) return;
+  const handleDeleteCategory = (categoryId, categoryName) => {
+    // 1. Define a lógica de execução
+    const executeDelete = async () => {
+      try {
+        await apiFetch(`/categories/${categoryId}`, { method: 'DELETE' });
+        onUpdateList(prevList => ({
+          ...prevList,
+          categories: prevList.categories.filter(c => c.id !== categoryId)
+        }));
+      } catch (err) {
+        alert('Não foi possível deletar a categoria: ' + (err.data?.message || err.message));
+      }
+    };
     
-    try {
-      await apiFetch(`/categories/${categoryId}`, { method: 'DELETE' });
-      // Atualiza a lista no estado pai
-      onUpdateList(prevList => ({
-        ...prevList,
-        categories: prevList.categories.filter(c => c.id !== categoryId)
-      }));
-    } catch (err) {
-      alert('Não foi possível deletar a categoria: ' + (err.data?.message || err.message));
-    }
+    // 2. Chama o modal de confirmação do pai
+    requestConfirmation(
+      'Deletar Categoria',
+      `Tem certeza que quer deletar a categoria "${categoryName}"? Todos os itens dentro dela também serão removidos.`,
+      executeDelete // Passa a lógica de deleção como callback
+    );
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={onClose}>
+    // Z-index 40 e 50 (padrão), pois o ConfirmationModal terá z-50 e z-60
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={handleClose}>
       <div 
         className="bg-white p-6 rounded-lg shadow-xl z-50 max-w-lg w-full" 
         onClick={(e) => e.stopPropagation()}
@@ -101,8 +123,8 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
             onChange={(e) => setNewCategoryName(e.target.value)} 
             placeholder="Ex: Cozinha" 
             required
-            maxLength={50} // Limite (Ponto 2)
-            pattern={nameValidationRegex} // Validação (Ponto 2)
+            maxLength={50}
+            pattern={nameValidationRegex}
             title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
             className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
@@ -125,11 +147,8 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
             list.categories.map(category => (
               <div key={category.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
                 <span className="text-gray-800">{category.name}</span>
-                {/* TODO: Botões de Mover (Cima/Baixo) podem ser adicionados aqui 
-                  quando o backend for atualizado com um campo 'order'.
-                */}
                 <button 
-                  onClick={() => handleDeleteCategory(category.id)}
+                  onClick={() => handleDeleteCategory(category.id, category.name)} // <--- MUDANÇA AQUI
                   className="text-red-500 hover:text-red-700 p-1"
                   title="Deletar Categoria"
                 >
@@ -144,7 +163,7 @@ export default function CategoryManagerModal({ isOpen, onClose, list, onUpdateLi
         <div className="flex justify-end mt-6">
           <button 
             type="button" 
-            onClick={onClose} 
+            onClick={handleClose} 
             className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Fechar
