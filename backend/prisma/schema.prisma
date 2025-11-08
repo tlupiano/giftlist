@@ -38,10 +38,11 @@ model GiftList {
   categories Category[]
 }
 
-// ---- MODELO CATEGORIA (Sem alteração) ----
+// ---- MODELO CATEGORIA (ALTERADO) ----
 model Category {
   id        String   @id @default(uuid())
   name      String   // Nome da categoria
+  icon      String?  // <-- ALTERAÇÃO 3: Ícone/Emoji
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -96,10 +97,11 @@ model ListTemplate {
   categories TemplateCategory[]
 }
 
-// Modelo das categorias do Template (Ex: "Quarto", "Banho")
+// Modelo das categorias do Template (ALTERADO)
 model TemplateCategory {
   id        String   @id @default(uuid())
   name      String
+  icon      String?  // <-- ALTERAÇÃO 3: Ícone/Emoji
   createdAt DateTime @default(now())
 
   // Relacionamento: Pertence a UM template
@@ -110,7 +112,7 @@ model TemplateCategory {
   items TemplateItem[]
 }
 
-// Modelo dos itens do Template (Ex: "Berço", "Fraldas")
+// Modelo dos itens do Template (Sem alteração)
 model TemplateItem {
   id          String   @id @default(uuid())
   name        String

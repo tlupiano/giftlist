@@ -128,8 +128,11 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit, onThank })
               </button>
             </div>
           </div>
+          {/* --- CORREÇÃO 2: Formatação de Preço --- */}
           {item.price > 0 && (
-            <p className="text-md font-bold text-gray-700 my-1">R$ {item.price.toFixed(2)}</p>
+            <p className="text-md font-bold text-gray-700 my-1">
+              R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           )}
           {actions}
         </div>
@@ -312,15 +315,36 @@ export default function EditListPage() {
       });
     };
 
+    // --- CORREÇÃO 3: Adiciona listener para categoria deletada ---
+    const handleCategoryDelete = ({ id: deletedCategoryId }) => {
+      console.log('[SOCKET] Categoria deletada recebida (Admin):', deletedCategoryId);
+      setList((prevList) => {
+        if (!prevList) return null;
+        const newCategories = prevList.categories.filter(c => c.id !== deletedCategoryId);
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+      // Se a categoria deletada estava no formulário, limpa
+      setFormValues(f => {
+        if (f.categoryId === deletedCategoryId) {
+          return { ...f, categoryId: '' };
+        }
+        return f;
+      });
+    };
+    // --- FIM DA CORREÇÃO ---
+
     socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
+    socket.on('category:deleted', handleCategoryDelete); // <-- CORREÇÃO 3
 
     return () => {
       socket.emit('leaveListRoom', slug);
       socket.off('item:created', handleItemCreated);
       socket.off('item:updated', handleItemUpdate);
       socket.off('item:deleted', handleItemDelete);
+      socket.off('category:deleted', handleCategoryDelete); // <-- CORREÇÃO 3
     };
   }, [socket, slug]);
 
@@ -644,6 +668,14 @@ export default function EditListPage() {
     const file = e.target.files[0];
     if (file) handleImageFile(file);
   };
+
+  // --- CORREÇÃO 2: Handler para bloquear teclas no input de preço ---
+  const handlePriceKeyDown = (e) => {
+    // Block 'e', 'E', '-', '+' que são válidos em 'number' mas não para preço
+    if (['e', 'E', '-', '+'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
   
   // --- Renderização ---
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
@@ -720,7 +752,17 @@ export default function EditListPage() {
               </div>
               <div>
                 <label htmlFor="itemPrice" className="block text-sm font-medium text-gray-700">Preço (Ex: 150.00)</label>
-                <input type="number" step="0.01" id="itemPrice" value={formValues.price} onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
+                {/* --- CORREÇÃO 2: Validação de Input de Preço --- */}
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  id="itemPrice" 
+                  value={formValues.price} 
+                  onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))}
+                  min="0"
+                  onKeyDown={handlePriceKeyDown}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
+                />
               </div>
               
               {/* --- Upload de Imagem --- */}

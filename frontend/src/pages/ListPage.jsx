@@ -60,7 +60,7 @@ function ReservationModal({ item, onClose, onSubmit, error }) {
   );
 }
 
-// --- Componente de Card de Item (sem mudanças) ---
+// --- Componente de Card de Item (ALTERADO) ---
 function ItemCard({ item, onReserveClick }) {
   const { status } = item;
   let buttonContent;
@@ -102,8 +102,11 @@ function ItemCard({ item, onReserveClick }) {
       </div>
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
+        {/* --- CORREÇÃO 2: Formatação de Preço --- */}
         {item.price > 0 && (
-          <p className="text-lg font-bold text-green-700 my-1">R$ {item.price.toFixed(2)}</p>
+          <p className="text-lg font-bold text-green-700 my-1">
+            R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         )}
         <p className="text-sm text-gray-600 mt-2 flex-grow">{item.description || 'Nenhuma descrição.'}</p>
         {item.linkUrl && (
@@ -240,9 +243,24 @@ export default function ListPage() {
       });
     };
 
+    // --- CORREÇÃO 3: Adiciona listener para categoria deletada ---
+    const handleCategoryDelete = ({ id: deletedCategoryId }) => {
+      console.log('[SOCKET] Categoria deletada recebida:', deletedCategoryId);
+      setList((prevList) => {
+        if (!prevList) return null;
+
+        const newCategories = prevList.categories.filter(c => c.id !== deletedCategoryId);
+        
+        calculateProgress(newCategories); // Recalcula o progresso
+        return { ...prevList, categories: newCategories };
+      });
+    };
+    // --- FIM DA CORREÇÃO ---
+
     socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
+    socket.on('category:deleted', handleCategoryDelete); // <-- CORREÇÃO 3
 
     // 5. Limpa ao sair
     return () => {
@@ -250,6 +268,7 @@ export default function ListPage() {
       socket.off('item:created', handleItemCreated);
       socket.off('item:updated', handleItemUpdate);
       socket.off('item:deleted', handleItemDelete);
+      socket.off('category:deleted', handleCategoryDelete); // <-- CORREÇÃO 3
     };
   }, [socket, slug]); // Roda quando o socket ou o slug mudam
   // --- FIM DA SUGESTÃO 3 ---
