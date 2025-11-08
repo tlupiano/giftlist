@@ -18,15 +18,19 @@ function DeleteIcon() {
  * @param {object} props.list - O objeto da lista (precisamos do ID e das categorias)
  * @param {function} props.onUpdateList - Callback para atualizar a lista na página principal
  * @param {function} props.requestConfirmation - (NOVO) Função do pai para pedir confirmação
+ * @param {function} props.showToast - (NOVO) Função do pai para mostrar toast
  */
 export default function CategoryManagerModal({ 
   isOpen, 
   onClose, 
   list, 
   onUpdateList, 
-  requestConfirmation 
+  requestConfirmation,
+  showToast // <-- Recebe o showToast
 }) {
   const [newCategoryName, setNewCategoryName] = useState('');
+  // --- ALTERAÇÃO 3: Estado para o ícone ---
+  const [newCategoryIcon, setNewCategoryIcon] = useState('');
   const [categoryError, setCategoryError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,6 +40,7 @@ export default function CategoryManagerModal({
   // Limpa o formulário ao fechar
   const handleClose = () => {
     setNewCategoryName('');
+    setNewCategoryIcon(''); // --- ALTERAÇÃO 3
     setCategoryError(null);
     setIsSubmitting(false);
     onClose();
@@ -63,9 +68,14 @@ export default function CategoryManagerModal({
 
     setIsSubmitting(true);
     try {
+      // --- ALTERAÇÃO 3: Envia nome e ícone ---
       const newCategory = await apiFetch('/categories', {
         method: 'POST',
-        body: JSON.stringify({ name: newCategoryName, listId: list.id }),
+        body: JSON.stringify({ 
+          name: newCategoryName, 
+          icon: newCategoryIcon, // <-- Envia o ícone
+          listId: list.id 
+        }),
       });
       
       onUpdateList(prevList => ({
@@ -73,6 +83,7 @@ export default function CategoryManagerModal({
         categories: [...prevList.categories, { ...newCategory, items: [] }] 
       }));
       setNewCategoryName('');
+      setNewCategoryIcon(''); // --- ALTERAÇÃO 3
       
     } catch (err) {
       setCategoryError(err.data?.message || 'Erro ao criar categoria.');
@@ -90,8 +101,10 @@ export default function CategoryManagerModal({
           ...prevList,
           categories: prevList.categories.filter(c => c.id !== categoryId)
         }));
+        showToast({ message: 'Categoria deletada.', type: 'success' }); // <-- Avisa o usuário
       } catch (err) {
-        alert('Não foi possível deletar a categoria: ' + (err.data?.message || err.message));
+        // Usa o showToast para erro
+        showToast({ message: 'Não foi possível deletar: ' + (err.data?.message || err.message), type: 'error' });
       }
     };
     
@@ -116,7 +129,16 @@ export default function CategoryManagerModal({
 
         {/* Formulário para Adicionar Categoria */}
         <h3 className="text-lg font-semibold mb-2">Adicionar Nova Categoria</h3>
+        {/* --- ALTERAÇÃO 3: Formulário com ícone --- */}
         <form onSubmit={handleCreateCategory} className="flex space-x-2 mb-4">
+          <input 
+            type="text" 
+            value={newCategoryIcon} 
+            onChange={(e) => setNewCategoryIcon(e.target.value)} 
+            placeholder="Ex: 🍳" 
+            maxLength={5}
+            className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
           <input 
             type="text" 
             value={newCategoryName} 
@@ -146,7 +168,11 @@ export default function CategoryManagerModal({
           ) : (
             list.categories.map(category => (
               <div key={category.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                <span className="text-gray-800">{category.name}</span>
+                {/* --- ALTERAÇÃO 3: Exibe ícone --- */}
+                <div className="flex items-center space-x-2">
+                  {category.icon && <span className="text-xl">{category.icon}</span>}
+                  <span className="text-gray-800">{category.name}</span>
+                </div>
                 <button 
                   onClick={() => handleDeleteCategory(category.id, category.name)} // <--- MUDANÇA AQUI
                   className="text-red-500 hover:text-red-700 p-1"

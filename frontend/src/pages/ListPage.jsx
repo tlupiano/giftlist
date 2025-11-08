@@ -315,22 +315,38 @@ export default function ListPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {categoriesWithItems.map(category => (
-            <div key={category.id}>
-              <h2 className="text-2xl font-bold mb-4 text-gray-800 pb-2 border-b-2 border-blue-200">
-                {category.name}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {category.items.map((item) => (
-                  <ItemCard 
-                    key={item.id} 
-                    item={item} 
-                    onReserveClick={handleReserveClick} 
-                  />
-                ))}
+          {categoriesWithItems.map(category => {
+            // --- ALTERAÇÃO 2: Cálculo da contagem ---
+            const totalCategoryItems = category.items.length;
+            const purchasedCategoryItems = category.items.filter(i => i.status === 'PURCHASED').length;
+
+            return (
+              <div key={category.id}>
+                {/* --- ALTERAÇÃO 2 & 3: Mostrar contagem e ícone --- */}
+                <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-blue-200">
+                  <h2 className="text-2xl font-bold text-gray-800 flex items-center space-x-2">
+                    {category.icon && <span className="text-2xl">{category.icon}</span>}
+                    <span>{category.name}</span>
+                  </h2>
+                  {totalCategoryItems > 0 && (
+                    <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                      {purchasedCategoryItems}/{totalCategoryItems}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {category.items.map((item) => (
+                    <ItemCard 
+                      key={item.id} 
+                      item={item} 
+                      onReserveClick={handleReserveClick} 
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

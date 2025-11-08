@@ -162,7 +162,8 @@ export default function EditListPage() {
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   
-  const [editingCategory, setEditingCategory] = useState({ id: null, name: '' });
+  // --- ALTERAÇÃO 3: Atualiza estado de edição da categoria ---
+  const [editingCategory, setEditingCategory] = useState({ id: null, name: '', icon: '' });
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -328,8 +329,13 @@ export default function EditListPage() {
     setList(updaterFn);
   };
   
-  const handleStartEditCategory = (category) => setEditingCategory({ id: category.id, name: category.name });
-  const handleCancelEditCategory = () => setEditingCategory({ id: null, name: '' });
+  // --- ALTERAÇÃO 3: Captura o ícone ao iniciar edição ---
+  const handleStartEditCategory = (category) => setEditingCategory({ 
+    id: category.id, 
+    name: category.name, 
+    icon: category.icon || '' 
+  });
+  const handleCancelEditCategory = () => setEditingCategory({ id: null, name: '', icon: '' });
 
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
@@ -348,20 +354,24 @@ export default function EditListPage() {
     }
     
     try {
+      // --- ALTERAÇÃO 3: Envia o ícone ---
       const updatedCategory = await apiFetch(`/categories/${editingCategory.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ name: editingCategory.name }),
+        body: JSON.stringify({ 
+          name: editingCategory.name,
+          icon: editingCategory.icon 
+        }),
       });
       setList(prevList => ({
         ...prevList,
         categories: prevList.categories.map(c => 
-          c.id === updatedCategory.id ? { ...c, name: updatedCategory.name } : c
+          c.id === updatedCategory.id ? { ...c, name: updatedCategory.name, icon: updatedCategory.icon } : c
         )
       }));
       handleCancelEditCategory();
-      setToastMessage({ message: 'Categoria renomeada!', type: 'success' });
+      setToastMessage({ message: 'Categoria salva!', type: 'success' });
     } catch (err) {
-      setToastMessage({ message: 'Não foi possível renomear a categoria.', type: 'error' });
+      setToastMessage({ message: 'Não foi possível salvar a categoria.', type: 'error' });
     }
   };
 
@@ -698,7 +708,9 @@ export default function EditListPage() {
                 <select id="category" value={formValues.categoryId} onChange={(e) => setFormValues(f => ({ ...f, categoryId: e.target.value }))} required className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                   <option value="">Selecione uma categoria...</option>
                   {list.categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.icon} {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -816,58 +828,84 @@ export default function EditListPage() {
               <p className="text-gray-600">Suas categorias estão vazias. Adicione itens a elas usando o formulário ao lado para que elas apareçam aqui.</p>
             </div>
           ) : (
-            categoriesWithItems.map(category => (
-              <div key={category.id} className="bg-white p-6 rounded-lg shadow-md">
-                
-                <div className="flex justify-between items-center mb-4 pb-4 border-b">
-                  {editingCategory.id === category.id ? (
-                    <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2">
-                      <input 
-                        type="text"
-                        value={editingCategory.name}
-                        onChange={(e) => setEditingCategory(c => ({ ...c, name: e.target.value }))}
-                        className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                        autoFocus
-                        maxLength={50}
-                        pattern={nameValidationRegex}
-                        title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
-                      />
-                      <button type="submit" className="text-green-600 hover:text-green-800 p-1">Salvar</button>
-                      <button type="button" onClick={handleCancelEditCategory} className="text-gray-500 hover:text-gray-700 p-1">Cancelar</button>
-                    </form>
+            categoriesWithItems.map(category => {
+              // --- ALTERAÇÃO 2: Cálculo da contagem ---
+              const totalCategoryItems = category.items.length;
+              const purchasedCategoryItems = category.items.filter(i => i.status === 'PURCHASED').length;
+
+              return (
+                <div key={category.id} className="bg-white p-6 rounded-lg shadow-md">
+                  
+                  <div className="flex justify-between items-center mb-4 pb-4 border-b">
+                    {editingCategory.id === category.id ? (
+                      // --- ALTERAÇÃO 3: Formulário de edição in-loco ---
+                      <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2">
+                        <input 
+                          type="text"
+                          value={editingCategory.icon}
+                          onChange={(e) => setEditingCategory(c => ({ ...c, icon: e.target.value }))}
+                          className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                          maxLength={5}
+                          placeholder="Ex: 🍳"
+                        />
+                        <input 
+                          type="text"
+                          value={editingCategory.name}
+                          onChange={(e) => setEditingCategory(c => ({ ...c, name: e.target.value }))}
+                          className="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                          autoFocus
+                          maxLength={50}
+                          pattern={nameValidationRegex}
+                          title="Apenas letras, números, acentos, espaços, hífens e apóstrofos."
+                        />
+                        <button type="submit" className="text-green-600 hover:text-green-800 p-1">Salvar</button>
+                        <button type="button" onClick={handleCancelEditCategory} className="text-gray-500 hover:text-gray-700 p-1">Cancelar</button>
+                      </form>
+                    ) : (
+                      // --- ALTERAÇÃO 2 & 3: Mostrar contagem e ícone ---
+                      <div className="flex justify-between items-center w-full">
+                        <div className="flex items-center space-x-3">
+                          <h2 className="text-2xl font-bold flex items-center space-x-2">
+                            {category.icon && <span className="text-2xl">{category.icon}</span>}
+                            <span>{category.name}</span>
+                          </h2>
+                          <button 
+                            onClick={() => handleStartEditCategory(category)}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="Renomear Categoria"
+                          >
+                            <EditIcon />
+                          </button>
+                        </div>
+                        {totalCategoryItems > 0 && (
+                          <span className="text-sm font-semibold text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                            {purchasedCategoryItems}/{totalCategoryItems}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {category.items.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Nenhum item nesta categoria. Adicione um item usando o formulário ao lado.</p>
                   ) : (
-                    <div className="flex items-center space-x-3">
-                      <h2 className="text-2xl font-bold">{category.name}</h2>
-                      <button 
-                        onClick={() => handleStartEditCategory(category)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="Renomear Categoria"
-                      >
-                        <EditIcon />
-                      </button>
+                    <div className="space-y-3">
+                      {category.items.map((item) => (
+                        <AdminItemCard 
+                          key={item.id} 
+                          item={item} 
+                          onConfirm={handleConfirmPurchase}
+                          onCancel={() => handleCancelReservation(item.id)}
+                          onDelete={() => handleDeleteItem(item.id)}
+                          onEdit={handleStartEdit}
+                          onThank={handleThankYou} // Passa o handler de Agradecer
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
-                
-                {category.items.length === 0 ? (
-                  <p className="text-gray-500 text-sm">Nenhum item nesta categoria. Adicione um item usando o formulário ao lado.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {category.items.map((item) => (
-                      <AdminItemCard 
-                        key={item.id} 
-                        item={item} 
-                        onConfirm={handleConfirmPurchase}
-                        onCancel={() => handleCancelReservation(item.id)}
-                        onDelete={() => handleDeleteItem(item.id)}
-                        onEdit={handleStartEdit}
-                        onThank={handleThankYou} // Passa o handler de Agradecer
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

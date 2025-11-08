@@ -20,8 +20,9 @@ export default function ProgressBar({ total, comprados }) {
       </div>
       {/* Barra de Progresso */}
       <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+        {/* --- ALTERAÇÃO 1: Adicionado degradê --- */}
         <div
-          className="bg-blue-600 h-4 rounded-full transition-all duration-500 ease-out"
+          className="h-4 rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-blue-500 to-indigo-600"
           style={{ width: `${percentual}%` }}
         ></div>
       </div>
