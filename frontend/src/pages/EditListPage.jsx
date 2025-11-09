@@ -129,7 +129,9 @@ function AdminItemCard({ item, onConfirm, onCancel, onDelete, onEdit, onThank })
             </div>
           </div>
           {item.price > 0 && (
-            <p className="text-md font-bold text-gray-700 my-1">R$ {item.price.toFixed(2)}</p>
+            <p className="text-md font-bold text-gray-700 my-1">
+              R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           )}
           {actions}
         </div>
@@ -644,6 +646,14 @@ export default function EditListPage() {
     const file = e.target.files[0];
     if (file) handleImageFile(file);
   };
+
+  // Handler para bloquear teclas no input de preço ---
+  const handlePriceKeyDown = (e) => {
+    // Block 'e', 'E', '-', '+' que são válidos em 'number' mas não para preço
+    if (['e', 'E', '-', '+'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
   
   // --- Renderização ---
   const categoriesWithItems = list ? list.categories.filter(c => c.items.length > 0) : [];
@@ -720,7 +730,16 @@ export default function EditListPage() {
               </div>
               <div>
                 <label htmlFor="itemPrice" className="block text-sm font-medium text-gray-700">Preço (Ex: 150.00)</label>
-                <input type="number" step="0.01" id="itemPrice" value={formValues.price} onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  id="itemPrice" 
+                  value={formValues.price} 
+                  onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))}
+                  min="0"
+                  onKeyDown={handlePriceKeyDown}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
+                />
               </div>
               
               {/* --- Upload de Imagem --- */}

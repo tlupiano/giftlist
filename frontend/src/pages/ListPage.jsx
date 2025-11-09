@@ -103,7 +103,9 @@ function ItemCard({ item, onReserveClick }) {
       <div className="p-4 flex flex-col flex-grow">
         <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
         {item.price > 0 && (
-          <p className="text-lg font-bold text-green-700 my-1">R$ {item.price.toFixed(2)}</p>
+          <p className="text-lg font-bold text-green-700 my-1">
+            R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         )}
         <p className="text-sm text-gray-600 mt-2 flex-grow">{item.description || 'Nenhuma descrição.'}</p>
         {item.linkUrl && (

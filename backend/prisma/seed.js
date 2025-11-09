@@ -25,6 +25,7 @@ async function main() {
           // Categoria: Quarto do Bebê
           {
             name: 'Quarto do Bebê',
+            icon: '🛌', // <-- ALTERAÇÃO 3
             items: {
               create: [
                 { name: 'Berço', description: 'Berço padrão americano com colchão.' },
@@ -37,6 +38,7 @@ async function main() {
           // Categoria: Hora do Banho
           {
             name: 'Hora do Banho',
+            icon: '🛁', // <-- ALTERAÇÃO 3
             items: {
               create: [
                 { name: 'Banheira com Suporte' },
@@ -48,6 +50,7 @@ async function main() {
           // Categoria: Alimentação
           {
             name: 'Alimentação',
+            icon: '🍼', // <-- ALTERAÇÃO 3
             items: {
               create: [
                 { name: 'Cadeira de Alimentação (Cadeirão)' },
@@ -76,6 +79,7 @@ async function main() {
           // Categoria: Cozinha
           {
             name: 'Cozinha',
+            icon: '🍳', // <-- ALTERAÇÃO 3
             items: {
               create: [
                 { name: 'Aparelho de Jantar', description: 'Completo, 42 peças.', price: 500.00 },
@@ -88,6 +92,7 @@ async function main() {
           // Categoria: Eletrodomésticos
           {
             name: 'Eletrodomésticos',
+            icon: '🔌', // <-- ALTERAÇÃO 3
             items: {
               create: [
                 { name: 'Geladeira Duplex', price: 3500.00 },
