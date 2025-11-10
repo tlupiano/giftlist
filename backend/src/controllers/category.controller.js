@@ -119,3 +119,46 @@ export const deleteCategory = async (req, res) => {
     res.status(500).json({ message: 'Erro interno ao deletar a categoria.' });
   }
 };
+
+// --- Reordenar Categorias (Protegido - Dono) ---
+export const reorderCategories = async (req, res) => {
+  const { listId, orderedCategoryIds } = req.body;
+  const userId = req.userId;
+
+  if (!listId || !Array.isArray(orderedCategoryIds)) {
+    return res.status(400).json({ message: 'ID da lista e um array de IDs de categoria são obrigatórios.' });
+  }
+
+  try {
+    // 1. Verificar se o usuário é o dono da lista
+    const list = await prisma.giftList.findUnique({
+      where: { id: listId },
+    });
+
+    if (!list) {
+      return res.status(404).json({ message: 'Lista não encontrada.' });
+    }
+    if (list.userId !== userId) {
+      return res.status(403).json({ message: 'Acesso negado. Esta lista não é sua.' });
+    }
+
+    // 2. Executar a atualização em uma transação
+    const updatePromises = orderedCategoryIds.map((categoryId, index) =>
+      prisma.category.update({
+        where: { id: categoryId },
+        data: { order: index },
+      })
+    );
+
+    await prisma.$transaction(updatePromises);
+
+    // 3. Emitir evento de socket para notificar todos os clientes
+    getIO().to(list.slug).emit('categories:reordered', { orderedIds: orderedCategoryIds });
+
+    res.status(200).json({ message: 'Ordem das categorias atualizada com sucesso.' });
+
+  } catch (error) {
+    console.error('[CATEGORY_REORDER] Erro:', error);
+    res.status(500).json({ message: 'Erro interno ao reordenar as categorias.' });
+  }
+};
