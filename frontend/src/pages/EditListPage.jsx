@@ -789,7 +789,7 @@ export default function EditListPage() {
                 <input type="text" id="itemName" value={formValues.name} onChange={(e) => setFormValues(f => ({ ...f, name: e.target.value }))} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" />
               </div>
               <div>
-                <label htmlFor="itemPrice" className="block text-sm font-medium text-gray-700">Preço (Ex: 150.00)</label>
+                <label htmlFor="itemPrice" className="block text-sm font-medium text-gray-700">Preço (Ex: 150,00)</label>
                 <input 
                   type="number" 
                   step="0.01" 
@@ -799,8 +799,8 @@ export default function EditListPage() {
                   min="0"
                   maxLength="18"
                   onInput={(e) => {
-                    if (e.target.value.length > 15) {
-                      e.target.value = e.target.value.slice(0, 15);
+                    if (e.target.value.length > 12) {
+                      e.target.value = e.target.value.slice(0, 12);
                     }
                   }}
                   onKeyDown={handlePriceKeyDown}
