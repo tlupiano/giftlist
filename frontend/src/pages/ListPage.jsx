@@ -300,6 +300,24 @@ export default function ListPage() {
       });
     };
 
+    const handleCategoriesReordered = ({ orderedIds }) => {
+      console.log('[SOCKET] Reordenação de categorias recebida:', orderedIds);
+      setList((prevList) => {
+        if (!prevList) return null;
+
+        const categoryMap = new Map(prevList.categories.map(c => [c.id, c]));
+        const reorderedCategories = orderedIds.map(id => categoryMap.get(id)).filter(Boolean);
+
+        // Se alguma categoria não foi encontrada, melhor buscar do zero para evitar inconsistência
+        if (reorderedCategories.length !== prevList.categories.length) {
+          fetchList();
+          return prevList;
+        }
+
+        return { ...prevList, categories: reorderedCategories };
+      });
+    };
+
     socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
@@ -307,6 +325,7 @@ export default function ListPage() {
     socket.on('category:created', handleCategoryCreated);
     socket.on('category:updated', handleCategoryUpdated);
     socket.on('giftlist:updated', handleListUpdate);
+    socket.on('categories:reordered', handleCategoriesReordered);
 
     // 5. Limpa ao sair
     return () => {
@@ -318,6 +337,7 @@ export default function ListPage() {
       socket.off('category:created', handleCategoryCreated);
       socket.off('category:updated', handleCategoryUpdated);
       socket.off('giftlist:updated', handleListUpdate);
+      socket.off('categories:reordered', handleCategoriesReordered);
     };
   }, [socket, slug]); // Roda quando o socket ou o slug mudam
   // --- FIM DA SUGESTÃO 3 ---
