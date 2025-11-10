@@ -104,7 +104,7 @@ export default function CategoryManagerModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderedCategories, setOrderedCategories] = useState([]);
 
-  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
+  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '\\-]+$";
 
   useEffect(() => {
     if (list?.categories) {

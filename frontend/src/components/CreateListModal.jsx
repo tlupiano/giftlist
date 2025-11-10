@@ -25,7 +25,7 @@ export default function CreateListModal({ templateId, templateName, onClose, onL
   // --- FIM DA SUGESTÃO 1 ---
 
   // Regex para validação de nomes (letras, números, acentos, espaço, hífen, apóstrofo)
-  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '-]+$";
+  const nameValidationRegex = "^[a-zA-Z0-9áéíóúâêîôûàèìòùãõäëïöüçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÄËÏÖÜÇ '\\-]+$";
 
 
   // Define o título do modal
