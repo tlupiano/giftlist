@@ -797,6 +797,12 @@ export default function EditListPage() {
                   value={formValues.price} 
                   onChange={(e) => setFormValues(f => ({ ...f, price: e.target.value }))}
                   min="0"
+                  maxLength="18"
+                  onInput={(e) => {
+                    if (e.target.value.length > 15) {
+                      e.target.value = e.target.value.slice(0, 15);
+                    }
+                  }}
                   onKeyDown={handlePriceKeyDown}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
                 />
