@@ -1,5 +1,5 @@
 // O "baseURL" da nossa API
-const API_URL = 'http://localhost:5000/api';
+const API_URL = `${import.meta.env.VITE_API_BASE_URL}/api`;
 
 /**
  * Um wrapper de 'fetch' que automaticamente adiciona o token de autenticação.
