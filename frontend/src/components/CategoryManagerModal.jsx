@@ -13,6 +13,7 @@ import {
 import { reorder } from '@atlaskit/pragmatic-drag-and-drop/reorder';
 import { DropIndicator } from '@atlaskit/pragmatic-drag-and-drop-react-drop-indicator/box';
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element';
+import EmojiPicker from 'emoji-picker-react';
 
 // --- ÍCONES ---
 function DeleteIcon() {
@@ -27,6 +28,14 @@ function DragHandleIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-400">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
+    </svg>
+  );
+}
+
+function EmojiIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-6 h-6">
+      <path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1zm0 20a9 9 0 1 1 9-9 9.011 9.011 0 0 1-9 9zm6-8a6 6 0 0 1-12 0 1 1 0 0 1 2 0 4 4 0 0 0 8 0 1 1 0 0 1 2 0zM8 10V9a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0zm6 0V9a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0z"/>
     </svg>
   );
 }
@@ -100,6 +109,7 @@ export default function CategoryManagerModal({
 }) {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
+  const [isPickerVisible, setPickerVisible] = useState(false);
   const [categoryError, setCategoryError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderedCategories, setOrderedCategories] = useState([]);
@@ -118,6 +128,7 @@ export default function CategoryManagerModal({
     setNewCategoryIcon('');
     setCategoryError(null);
     setIsSubmitting(false);
+    setPickerVisible(false);
     onClose();
   };
 
@@ -154,6 +165,7 @@ export default function CategoryManagerModal({
 
       setNewCategoryName('');
       setNewCategoryIcon('');
+      setPickerVisible(false);
     } catch (err) {
       setCategoryError(err.data?.message || 'Erro ao criar categoria.');
     } finally {
@@ -256,15 +268,31 @@ export default function CategoryManagerModal({
         <h2 className="text-2xl font-bold mb-4">Gerenciar Categorias</h2>
 
         <h3 className="text-lg font-semibold mb-2">Adicionar Nova Categoria</h3>
-        <form onSubmit={handleCreateCategory} className="flex space-x-2 mb-4">
-          <input
-            type="text"
-            value={newCategoryIcon}
-            onChange={(e) => setNewCategoryIcon(e.target.value)}
-            placeholder="Ex: 🍳"
-            maxLength={5}
-            className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
+        <form onSubmit={handleCreateCategory} className="flex space-x-2 mb-4 relative">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setPickerVisible(!isPickerVisible)}
+              className="flex items-center justify-center w-16 h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-xl"
+            >
+              {newCategoryIcon ? (
+                <span className="text-xl">{newCategoryIcon}</span>
+              ) : (
+                <EmojiIcon />
+              )}
+            </button>
+            {isPickerVisible && (
+              <div className="absolute z-10 mt-2">
+                <EmojiPicker
+                  onEmojiClick={(emojiObject) => {
+                    setNewCategoryIcon(emojiObject.emoji);
+                    setPickerVisible(false);
+                  }}
+                  pickerStyle={{ width: '100%' }}
+                />
+              </div>
+            )}
+          </div>
           <input
             type="text"
             value={newCategoryName}

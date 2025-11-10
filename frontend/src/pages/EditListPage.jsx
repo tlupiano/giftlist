@@ -8,6 +8,7 @@ import CategoryManagerModal from '../components/CategoryManagerModal';
 import { useSocket } from '../context/SocketContext.jsx';
 import Toast from '../components/Toast.jsx';
 import ConfirmationModal from '../components/ConfirmationModal';
+import EmojiPicker from 'emoji-picker-react';
 
 // --- Componentes de Ícone ---
 function EditIcon() { 
@@ -43,6 +44,14 @@ function ThankYouIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+    </svg>
+  );
+}
+
+function EmojiIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-6 h-6">
+      <path d="M12 1a11 11 0 1 0 11 11A11.013 11.013 0 0 0 12 1zm0 20a9 9 0 1 1 9-9 9.011 9.011 0 0 1-9 9zm6-8a6 6 0 0 1-12 0 1 1 0 0 1 2 0 4 4 0 0 0 8 0 1 1 0 0 1 2 0zM8 10V9a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0zm6 0V9a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0z"/>
     </svg>
   );
 }
@@ -166,6 +175,7 @@ export default function EditListPage() {
   
   // --- ALTERAÇÃO 3: Atualiza estado de edição da categoria ---
   const [editingCategory, setEditingCategory] = useState({ id: null, name: '', icon: '' });
+const [isPickerVisible, setPickerVisible] = useState(false);
   const [copyButtonText, setCopyButtonText] = useState('Copiar Link');
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -397,7 +407,10 @@ export default function EditListPage() {
     name: category.name, 
     icon: category.icon || '' 
   });
-  const handleCancelEditCategory = () => setEditingCategory({ id: null, name: '', icon: '' });
+  const handleCancelEditCategory = () => {
+    setEditingCategory({ id: null, name: '', icon: '' });
+    setPickerVisible(false);
+  };
 
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
@@ -431,6 +444,7 @@ export default function EditListPage() {
         )
       }));
       handleCancelEditCategory();
+      setPickerVisible(false);
       setToastMessage({ message: 'Categoria salva!', type: 'success' });
     } catch (err) {
       setToastMessage({ message: 'Não foi possível salvar a categoria.', type: 'error' });
@@ -924,15 +938,31 @@ export default function EditListPage() {
                   <div className="flex justify-between items-center mb-4 pb-4 border-b">
                     {editingCategory.id === category.id ? (
                       // --- ALTERAÇÃO 3: Formulário de edição in-loco ---
-                      <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2">
-                        <input 
-                          type="text"
-                          value={editingCategory.icon}
-                          onChange={(e) => setEditingCategory(c => ({ ...c, icon: e.target.value }))}
-                          className="block w-16 px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                          maxLength={5}
-                          placeholder="Ex: 🍳"
-                        />
+                      <form onSubmit={handleUpdateCategory} className="flex-grow flex items-center space-x-2 relative">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setPickerVisible(!isPickerVisible)}
+                            className="flex items-center justify-center w-16 h-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-xl"
+                          >
+                            {editingCategory.icon ? (
+                              <span className="text-xl">{editingCategory.icon}</span>
+                            ) : (
+                              <EmojiIcon />
+                            )}
+                          </button>
+                          {isPickerVisible && editingCategory.id === category.id && (
+                            <div className="absolute z-10 mt-2">
+                              <EmojiPicker
+                                onEmojiClick={(emojiObject) => {
+                                  setEditingCategory(c => ({ ...c, icon: emojiObject.emoji }));
+                                  setPickerVisible(false);
+                                }}
+                                pickerStyle={{ width: '100%' }}
+                              />
+                            </div>
+                          )}
+                        </div>
                         <input 
                           type="text"
                           value={editingCategory.name}
