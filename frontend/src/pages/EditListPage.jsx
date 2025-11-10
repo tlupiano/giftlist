@@ -272,10 +272,21 @@ export default function EditListPage() {
       console.log('[SOCKET] Item atualizado recebido (Admin):', updatedItem);
       setList((prevList) => {
         if (!prevList) return null;
-        const newCategories = prevList.categories.map(c => ({
+
+        // Remove o item de todas as categorias para garantir que ele não fique duplicado
+        const categoriesWithoutItem = prevList.categories.map(c => ({
           ...c,
-          items: c.items.map(i => i.id === updatedItem.id ? updatedItem : i)
+          items: c.items.filter(i => i.id !== updatedItem.id)
         }));
+
+        // Adiciona o item (atualizado) na sua nova categoria
+        const newCategories = categoriesWithoutItem.map(c => {
+          if (c.id === updatedItem.categoryId) {
+            return { ...c, items: [...c.items, updatedItem] };
+          }
+          return c;
+        });
+
         calculateProgress(newCategories);
         return { ...prevList, categories: newCategories };
       });
@@ -314,15 +325,64 @@ export default function EditListPage() {
       });
     };
 
+    const handleCategoryDelete = ({ id: deletedCategoryId }) => {
+      console.log('[SOCKET] Categoria deletada recebida (Admin):', deletedCategoryId);
+      setList((prevList) => {
+        if (!prevList) return null;
+        const newCategories = prevList.categories.filter(c => c.id !== deletedCategoryId);
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+      // Se a categoria deletada estava no formulário, limpa
+      setFormValues(f => {
+        if (f.categoryId === deletedCategoryId) {
+          return { ...f, categoryId: '' };
+        }
+        return f;
+      });
+    };
+
+    // const handleCategoryCreated = (newCategory) => {
+    //   console.log('[SOCKET] Categoria criada recebida (Admin):', newCategory);
+    //   setList((prevList) => {
+    //     if (!prevList) return null;
+    //     // Adiciona a nova categoria, garantindo que não haja duplicatas
+    //     if (prevList.categories.some(c => c.id === newCategory.id)) {
+    //       return prevList;
+    //     }
+    //     const newCategories = [...prevList.categories, newCategory];
+    //     calculateProgress(newCategories);
+    //     return { ...prevList, categories: newCategories };
+    //   });
+    // };
+
+    const handleCategoryUpdated = (updatedCategory) => {
+      console.log('[SOCKET] Categoria atualizada recebida (Admin):', updatedCategory);
+      setList((prevList) => {
+        if (!prevList) return null;
+        const newCategories = prevList.categories.map(c => 
+          c.id === updatedCategory.id ? updatedCategory : c
+        );
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+    };
+
     socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
+    socket.on('category:deleted', handleCategoryDelete);
+    // socket.on('category:created', handleCategoryCreated);
+    socket.on('category:updated', handleCategoryUpdated);
 
     return () => {
       socket.emit('leaveListRoom', slug);
       socket.off('item:created', handleItemCreated);
       socket.off('item:updated', handleItemUpdate);
       socket.off('item:deleted', handleItemDelete);
+      socket.off('category:deleted', handleCategoryDelete);
+      // socket.off('category:created', handleCategoryCreated);
+      socket.off('category:updated', handleCategoryUpdated);
     };
   }, [socket, slug]);
 

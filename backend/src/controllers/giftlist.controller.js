@@ -1,3 +1,4 @@
+import { getIO } from '../socket.js';
 import prisma from '../lib/prisma.js';
 
 // --- Criar uma nova Lista de Presentes (Protegido) ---
@@ -221,6 +222,11 @@ export const updateGiftList = async (req, res) => {
         eventDate: eventDate ? new Date(eventDate) : null,
       },
     });
+
+    // --- SUGESTÃO: Emitir evento de atualização ---
+    const io = getIO();
+    io.to(slug).emit('giftlist:updated', updatedList);
+    // --- FIM DA SUGESTÃO ---
 
     res.status(200).json(updatedList);
   } catch (error) {

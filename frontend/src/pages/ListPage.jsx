@@ -187,19 +187,26 @@ export default function ListPage() {
     // 2. Ouve por atualizações de itens
     const handleItemUpdate = (updatedItem) => {
       console.log('[SOCKET] Item atualizado recebido:', updatedItem);
-      
       setList((prevList) => {
         if (!prevList) return null;
-        
-        // Atualiza o item no estado da lista
-        const newCategories = prevList.categories.map(c => ({
+
+        // Remove o item de todas as categorias para garantir que ele não fique duplicado
+        const categoriesWithoutItem = prevList.categories.map(c => ({
           ...c,
-          items: c.items.map(i => i.id === updatedItem.id ? updatedItem : i)
+          items: c.items.filter(i => i.id !== updatedItem.id)
         }));
-        
-        // Recalcula o progresso
+
+        // Adiciona o item (atualizado) na sua nova categoria
+        const newCategories = categoriesWithoutItem.map(c => {
+          if (c.id === updatedItem.categoryId) {
+            // Adiciona o item atualizado e ordena os itens para consistência
+            const newItems = [...c.items, updatedItem].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            return { ...c, items: newItems };
+          }
+          return c;
+        });
+
         calculateProgress(newCategories);
-        
         return { ...prevList, categories: newCategories };
       });
     };
@@ -242,9 +249,64 @@ export default function ListPage() {
       });
     };
 
+    const handleCategoryDelete = ({ id: deletedCategoryId }) => {
+      console.log('[SOCKET] Categoria deletada recebida:', deletedCategoryId);
+      setList((prevList) => {
+        if (!prevList) return null;
+
+        const newCategories = prevList.categories.filter(c => c.id !== deletedCategoryId);
+        
+        calculateProgress(newCategories); // Recalcula o progresso
+        return { ...prevList, categories: newCategories };
+      });
+    };
+
+    const handleCategoryCreated = (newCategory) => {
+      console.log('[SOCKET] Categoria criada recebida:', newCategory);
+      setList((prevList) => {
+        if (!prevList) return null;
+        // Adiciona a nova categoria, garantindo que não haja duplicatas
+        if (prevList.categories.some(c => c.id === newCategory.id)) {
+          return prevList;
+        }
+        const newCategories = [...prevList.categories, newCategory];
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+    };
+
+    const handleCategoryUpdated = (updatedCategory) => {
+      console.log('[SOCKET] Categoria atualizada recebida:', updatedCategory);
+      setList((prevList) => {
+        if (!prevList) return null;
+        const newCategories = prevList.categories.map(c => 
+          c.id === updatedCategory.id ? updatedCategory : c
+        );
+        calculateProgress(newCategories);
+        return { ...prevList, categories: newCategories };
+      });
+    };
+
+    const handleListUpdate = (updatedList) => {
+      console.log('[SOCKET] Lista atualizada recebida:', updatedList);
+      setList((prevList) => {
+        if (!prevList) return null;
+        return {
+          ...prevList,
+          title: updatedList.title,
+          description: updatedList.description,
+          eventDate: updatedList.eventDate,
+        };
+      });
+    };
+
     socket.on('item:created', handleItemCreated);
     socket.on('item:updated', handleItemUpdate);
     socket.on('item:deleted', handleItemDelete); 
+    socket.on('category:deleted', handleCategoryDelete);
+    socket.on('category:created', handleCategoryCreated);
+    socket.on('category:updated', handleCategoryUpdated);
+    socket.on('giftlist:updated', handleListUpdate);
 
     // 5. Limpa ao sair
     return () => {
@@ -252,6 +314,10 @@ export default function ListPage() {
       socket.off('item:created', handleItemCreated);
       socket.off('item:updated', handleItemUpdate);
       socket.off('item:deleted', handleItemDelete);
+      socket.off('category:deleted', handleCategoryDelete);
+      socket.off('category:created', handleCategoryCreated);
+      socket.off('category:updated', handleCategoryUpdated);
+      socket.off('giftlist:updated', handleListUpdate);
     };
   }, [socket, slug]); // Roda quando o socket ou o slug mudam
   // --- FIM DA SUGESTÃO 3 ---

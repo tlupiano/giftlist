@@ -1,8 +1,10 @@
 import prisma from '../lib/prisma.js';
+import { getIO } from '../socket.js'; // <-- 1. Importar o getIO
 
 // --- Criar uma nova Categoria (Protegido - Dono) ---
 export const createCategory = async (req, res) => {
-  const { name, listId } = req.body;
+  // --- Adiciona 'icon' ---
+  const { name, listId, icon } = req.body;
   const userId = req.userId;
 
   if (!name || !listId) {
@@ -20,8 +22,18 @@ export const createCategory = async (req, res) => {
       data: {
         name,
         listId,
+        icon, 
       },
+      // --- ALTERAÇÃO: Inclui 'items' para o socket ---
+      include: {
+        items: true,
+      }
     });
+
+    // --- 2. EMITIR EVENTO DE SOCKET ---
+    const slug = list.slug;
+    getIO().to(slug).emit('category:created', newCategory);
+    // --- FIM DA ALTERAÇÃO ---
 
     res.status(201).json(newCategory);
   } catch (error) {
@@ -33,7 +45,8 @@ export const createCategory = async (req, res) => {
 // --- Atualizar uma Categoria (Protegido - Dono) ---
 export const updateCategory = async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  // --- Adiciona 'icon' ---
+  const { name, icon } = req.body;
   const userId = req.userId;
 
   try {
@@ -51,8 +64,20 @@ export const updateCategory = async (req, res) => {
 
     const updatedCategory = await prisma.category.update({
       where: { id },
-      data: { name },
+      data: { 
+        name,
+        icon
+      },
+      // --- ALTERAÇÃO: Inclui 'items' para o socket ---
+      include: {
+        items: true,
+      }
     });
+
+    // --- 2. EMITIR EVENTO DE SOCKET ---
+    const slug = category.list.slug;
+    getIO().to(slug).emit('category:updated', updatedCategory);
+    // --- FIM DA ALTERAÇÃO ---
 
     res.status(200).json(updatedCategory);
   } catch (error) {
@@ -82,6 +107,11 @@ export const deleteCategory = async (req, res) => {
     // O banco de dados está configurado para 'onDelete: Cascade',
     // então deletar a categoria também deletará todos os itens dentro dela.
     await prisma.category.delete({ where: { id } });
+
+    // --- 2. ADICIONAR EMISSÃO DE SOCKET (Correção 3) ---
+    const slug = category.list.slug;
+    getIO().to(slug).emit('category:deleted', { id: category.id });
+    // --- FIM DA CORREÇÃO ---
 
     res.status(204).send(); // OK, sem conteúdo
   } catch (error) {
