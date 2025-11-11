@@ -1,0 +1,24 @@
+# Dockerfile para PRODUÇÃO - Frontend (Multi-Stage)
+
+# --- Estágio 1: Build ---
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Copia os arquivos de definição de pacotes
+COPY package*.json ./
+
+# Instala as dependências e constrói o projeto
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# --- Estágio 2: Produção ---
+# Usa uma imagem Nginx super leve para servir os arquivos estáticos
+FROM nginx:1.25-alpine
+
+# Copia os arquivos construídos no estágio 'builder' para a pasta padrão do Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expõe a porta 80, que é a porta padrão do Nginx
+EXPOSE 80

@@ -1,0 +1,49 @@
+# Arquivo de Compose para o ambiente de PRODUÇÃO
+
+services:
+  # O serviço de banco de dados pode ser o mesmo
+  database:
+    image: postgres:16-alpine
+    container_name: giftlist_db_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Em produção, você pode não querer expor a porta do banco publicamente
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - pg_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod # Aponta para o Dockerfile de produção
+    container_name: giftlist_backend_prod
+    restart: always
+    env_file: ./.env.prod # Usa o arquivo de produção
+    depends_on:
+      database:
+        condition: service_healthy
+    # Sobrescreve o CMD do Dockerfile para rodar a migração antes de iniciar
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             node src/server.js"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod # Aponta para o Dockerfile de produção
+    container_name: giftlist_frontend_prod
+    restart: always
+    ports:
+      - "80:80" # Mapeia a porta 80 (HTTP) para a porta 80 do contêiner Nginx
+
+volumes:
+  pg_data_prod:

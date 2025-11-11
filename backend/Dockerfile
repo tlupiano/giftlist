@@ -1,6 +1,3 @@
-# TROQUE ESTA LINHA:
-# FROM node:18-alpine
-# POR ESTA: (Agora atualizada para node 22)
 FROM node:22
 
 # O resto do arquivo permanece o MESMO
